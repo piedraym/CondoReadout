@@ -1,6 +1,7 @@
 import csv
 import json
 import re
+import sys
 from collections import Counter, defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -647,11 +648,12 @@ def association_questions(building):
     return questions
 
 
-if __name__ == "__main__":
+def build_report(parent_folio):
+    """Everything the report needs for one condo, or None if the folio has no units."""
     fields = safe_fields(LAYERS["property"], PROPERTY_FIELDS)
-    building = building_summary("0141370780001", fields)
+    building = building_summary(parent_folio, fields)
     if not building:
-        raise SystemExit("Sin resultados para ese folio")
+        return None
     recert_fields = safe_fields(LAYERS["recert"], RECERT_FIELDS)
     building["recert"] = recert_records(building, recert_fields)
     building["recert_by_tower"] = recert_by_tower(building, building["recert"])
@@ -664,5 +666,13 @@ if __name__ == "__main__":
     building["recert_light"] = building_light(building["recert_by_tower"])
     building["dbpr"] = dbpr_info(building)
     building["questions"] = association_questions(building)
-    building["folios"] = building["folios"][:5]
+    return building
+
+
+if __name__ == "__main__":
+    folio = sys.argv[1] if len(sys.argv) > 1 else "0132310480001"  # The Grand
+    building = build_report(folio)
+    if not building:
+        raise SystemExit("Sin resultados para ese folio")
+    building["folios"] = building["folios"][:5]  # only to keep the printout short
     print(json.dumps(building, indent=2, ensure_ascii=False))
