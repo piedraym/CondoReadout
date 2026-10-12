@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Building Health Report · {{ name }}</title>
+<style>
+  @page { size: Letter; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f7f5f1; color: #1f2430; font: 12px/1.38 Helvetica, Arial, sans-serif; }
+  .page { width: 8.5in; min-height: 11in; margin: 0 auto; display: flex; flex-direction: column; }
+  .pad { padding-left: 0.55in; padding-right: 0.55in; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; padding-top: 0.3in; padding-bottom: 0.16in; border-bottom: 1px solid #d9d5cc; }
+  .kicker { font-size: 11px; font-weight: bold; letter-spacing: 0.12em; color: #5d6470; }
+  h1 { font: bold 29px/1.15 Georgia, "Times New Roman", serif; margin: 4px 0 4px; }
+  .sub { color: #3d4350; font-size: 13px; }
+  .logo { border: 1px dashed #9aa0aa; color: #5d6470; padding: 16px 26px; font-size: 12px; white-space: nowrap; }
+  h2 { font: bold 18px Georgia, "Times New Roman", serif; margin: 14px 0 6px; }
+  .tiles { display: flex; gap: 12px; margin-top: 14px; }
+  .tile { flex: 1; background: #fff; border: 1px solid #d9d5cc; padding: 9px 13px; }
+  .tile .label { font-size: 12px; color: #3d4350; }
+  .tile .value { font-size: 19px; font-weight: bold; margin: 2px 0 4px; }
+  .tile .note { font-size: 12px; color: #3d4350; }
+  .result { display: flex; gap: 20px; align-items: center; margin-top: 12px; padding: 11px 18px; border: 1px solid; }
+  .result.green { background: #e9f3e6; border-color: #a9cfa0; }
+  .result.yellow { background: #fff2dc; border-color: #ecc56a; }
+  .result.red { background: #fbe6e1; border-color: #e0a093; }
+  .lights span { display: block; width: 17px; height: 17px; border-radius: 50%; background: #e3ddd2; margin: 4px 0; }
+  .result.green .lights .g { background: #3f8f3a; }
+  .result.yellow .lights .y { background: #d18f00; }
+  .result.red .lights .r { background: #c0392b; }
+  .result .kicker { color: #6b4a00; }
+  .result.green .kicker { color: #2d5f2a; }
+  .result.red .kicker { color: #8a2417; }
+  .result h3 { font: bold 19px Georgia, "Times New Roman", serif; margin: 2px 0 4px; }
+  .result p { margin: 0; font-size: 12.5px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #d9d5cc; }
+  td { padding: 6px 13px; vertical-align: top; border-top: 1px solid #e6e2da; }
+  tr:first-child td { border-top: 0; }
+  td.item { font-weight: bold; width: 31%; }
+  td.status { width: 25%; }
+  .badge { display: inline-block; white-space: nowrap; padding: 3px 9px; font-size: 11px; font-weight: bold; letter-spacing: 0.04em; }
+  .badge.green { background: #e1f0dd; color: #2d5f2a; }
+  .badge.yellow { background: #ffe9b8; color: #6b4a00; }
+  .badge.red { background: #f8d5cd; color: #8a2417; }
+  .badge.gray { background: #e8e6e1; color: #4a4f5a; }
+  .cards { display: flex; gap: 14px; }
+  .card { flex: 1; background: #fff; border: 1px solid #d9d5cc; padding: 9px 13px; }
+  .card strong { display: block; margin-bottom: 4px; font-size: 13px; }
+  .card p { margin: 2px 0; }
+  .card.wide { flex: 1.7; }
+  .permit { display: flex; gap: 10px; }
+  .permit .when { width: 62px; color: #4a4f5a; }
+  .permit .what { flex: 1; }
+  .permit .state { font-weight: bold; }
+  .permit .state.finished { color: #2d5f2a; }
+  .permit .state.active, .permit .state.pending, .permit .state.in-adjustment { color: #6b4a00; }
+  .permit .state.on-hold, .permit .state.expired, .permit .state.revoked { color: #8a2417; }
+  .totals { margin-top: 6px !important; padding-top: 5px; border-top: 1px solid #e6e2da; color: #4a4f5a; }
+  ol { margin: 0; padding-left: 20px; }
+  ol li { margin-bottom: 3px; }
+  .grow { flex: 1; }
+  footer { margin-top: 12px; padding-top: 9px; padding-bottom: 0.22in; border-top: 1px solid #d9d5cc; font-size: 10px; color: #4a4f5a; }
+  footer p { margin: 0 0 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="pad">
+    <div>
+      <div class="kicker">BUILDING HEALTH REPORT</div>
+      <h1>{{ name }}</h1>
+      <div class="sub">{{ address }} · Folio {{ folio }}</div>
+    </div>
+    <div class="logo">[AGENT LOGO]</div>
+  </header>
+
+  <div class="pad">
+    <div class="tiles">
+      <div class="tile"><div class="label">Year built</div><div class="value">{{ year_built }}</div><div class="note">{{ age }}</div></div>
+      <div class="tile"><div class="label">Floors · units</div><div class="value">{{ floors }} · {{ units }}</div><div class="note">Floors estimated</div></div>
+      <div class="tile"><div class="label">Distance to coast</div><div class="value">{{ coast }}</div><div class="note">{{ coast_text }}</div></div>
+      <div class="tile"><div class="label">FEMA flood zone</div><div class="value">{{ zone }}</div><div class="note">{{ zone_text }}</div></div>
+    </div>
+
+    <div class="result {{ light }}">
+      <div class="lights"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+      <div>
+        <div class="kicker">OVERALL RESULT</div>
+        <h3>{{ result_title }}</h3>
+        <p>{{ result_text }} This rating covers recertification only; the items below are for your own review.</p>
+      </div>
+    </div>
+
+    <h2>Compliance</h2>
+    <table>
+      {% for row in compliance %}
+      <tr>
+        <td class="item">{{ row.item }}</td>
+        <td class="status">{% if row.badge %}<span class="badge {{ row.color }}">{{ row.badge }}</span>{% endif %}</td>
+        <td>{{ row.detail }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <h2>Also check</h2>
+    <div class="cards">
+      <div class="card wide">
+        <strong>Building permits in the last 12 months: {{ permits_recent_count }}</strong>
+        {% for permit in permits_recent %}
+        <p class="permit"><span class="when">{{ permit.date }}</span><span class="what">{{ permit.type }}</span><span class="state {{ permit.status|replace(" ", "-") }}">{{ permit.status }}</span></p>
+        {% endfor %}
+        {% if permits_recent_count > permits_recent|length %}<p>and {{ permits_recent_count - permits_recent|length }} more in the last 12 months</p>{% endif %}
+        {% if not permits_recent_count %}<p>No permits issued for the building in the last 12 months.</p>{% endif %}
+        <p class="totals">All time: {{ permits_total }} permits · {{ permits_in_progress }} in progress now · {{ permits_not_closed }} expired, revoked or on hold</p>
+      </div>
+      <div class="card">
+        <strong>Code violations: not public</strong>
+        <p>The City of Miami does not publish code compliance or unsafe structure cases. Ask for an estoppel letter.</p>
+      </div>
+    </div>
+
+    <h2>What to ask the association before making an offer</h2>
+    <ol>
+      {% for question in questions %}<li>{{ question }}</li>{% endfor %}
+    </ol>
+  </div>
+
+  <div class="grow"></div>
+  <footer class="pad">
+    <p><strong>Sources:</strong> Miami-Dade County Property Appraiser (year built, units), City of Miami (recertification, iBuild permits), Florida DBPR (condominium registry, SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County.</p>
+    <p>This report summarizes public records and is not an engineering inspection, an appraisal or legal advice. Dates marked as estimated follow the county rule and may differ from the City's. Verify every item with the association and a qualified professional.</p>
+    <p>Generated {{ generated }} · Folio {{ folio }}</p>
+  </footer>
+</div>
+</body>
+</html>

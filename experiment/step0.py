@@ -3,7 +3,7 @@ import json
 import re
 import sys
 from collections import Counter, defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -466,13 +466,14 @@ def building_light(towers):
     return max((t["light"] for t in towers.values()), key=LIGHT_ORDER.index)
 
 
-def open_permits(building, fields):
-    """Building-level permits left in Hold, Expired or Revoked, newest first."""
-    statuses = ",".join(f"'{s}'" for s in BAD_PERMIT_STATUSES)
+IN_PROGRESS_STATUSES = ("Active", "Pending", "InAdjustment")
+
+
+def permit_summary(building, fields):
+    """Building-level iBuild permits: total, last 12 months, in progress and not closed."""
     rows = query(
         LAYERS["ibuild_permits"],
-        f"FOLIO='{building['parent_folio']}' AND PermitStatus IN ({statuses})"
-        " AND PermitNumber IS NOT NULL",
+        f"FOLIO='{building['parent_folio']}' AND PermitNumber IS NOT NULL",
         fields,
     )
     permits = {}
@@ -480,9 +481,20 @@ def open_permits(building, fields):
         p = f["attributes"]
         p["PermitIssuedDate"] = ms_to_date(p["PermitIssuedDate"])
         permits[p["PermitNumber"]] = p  # the layer has exact duplicate rows
-    return sorted(
+    permits = sorted(
         permits.values(), key=lambda p: p["PermitIssuedDate"] or "", reverse=True
     )
+    year_ago = (date.today() - timedelta(days=365)).isoformat()
+    return {
+        "total": len(permits),
+        "last_12_months": [
+            p for p in permits if (p["PermitIssuedDate"] or "") >= year_ago
+        ],
+        "in_progress": [
+            p for p in permits if p["PermitStatus"] in IN_PROGRESS_STATUSES
+        ],
+        "not_closed": [p for p in permits if p["PermitStatus"] in BAD_PERMIT_STATUSES],
+    }
 
 
 def building_point(building):
@@ -599,7 +611,7 @@ def dbpr_info(building):
 def association_questions(building):
     """Questions for the buyer to ask the association, based on what the data shows or lacks."""
     questions = [
-        "Request an estoppel letter and written confirmation that there are no open code violations, "
+        "Request an estoppel letter and written confirmation of no open code violations, unsafe structure cases or liens.",
         "unsafe structure cases or liens (the City of Miami does not publish these cases).",
         "Are any special assessments approved, planned or under discussion?",
     ]
@@ -635,11 +647,19 @@ def association_questions(building):
         questions.append(
             "Is the association current on its annual fee to DBPR? It is listed as delinquent."
         )
-    if building["open_permits"]:
-        numbers = ", ".join(p["PermitNumber"] for p in building["open_permits"][:3])
+    in_progress = building["permits"]["in_progress"]
+    if in_progress:
         questions.append(
-            f"Was the work under these permits completed and inspected? {numbers}"
+            f"What work is in progress under the {len(in_progress)} active permits, "
+            "what does it cost and how will it be paid for?"
         )
+    not_closed = building["permits"]["not_closed"]
+    if not_closed:
+        questions.append(
+            f"Was the work under the {len(not_closed)} expired, revoked or on-hold permits completed "
+            f"and inspected (e.g. {not_closed[0]['PermitNumber']})?"
+        )
+
     zone = (building["flood"] or {}).get("zone") or ""
     if zone.startswith(("A", "V")):  # high-risk FEMA zones
         questions.append(
@@ -658,7 +678,7 @@ def build_report(parent_folio):
     building["recert"] = recert_records(building, recert_fields)
     building["recert_by_tower"] = recert_by_tower(building, building["recert"])
     permit_fields = safe_fields(LAYERS["ibuild_permits"], PERMIT_FIELDS)
-    building["open_permits"] = open_permits(building, permit_fields)
+    building["permits"] = permit_summary(building, permit_fields)
     point = building_point(building)
     building["flood"] = flood_zone(point)
     building["coast"] = coast_distance(point)
