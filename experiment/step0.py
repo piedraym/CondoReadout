@@ -246,8 +246,67 @@ LIGHTS = {
     "Pending: corrections >1y": "red",
     "Pending: stalled": "red",
     "Canceled": "red",
+    "Not due yet": "green",  # no record, but the first recertification is not due
 }
 LIGHT_ORDER = ["green", "yellow", "red"]
+
+NAME_DROP = {"CONDO", "CONDOMINIUM", "CONDOMINIUMS", "CO-OP", "COOP"}
+LOWER_WORDS = {
+    "OF",
+    "AT",
+    "THE",
+    "ON",
+    "IN",
+    "BY",
+    "AND",
+    "DE",
+    "DEL",
+    "LA",
+    "LAS",
+    "LOS",
+    "EL",
+}
+UPPER_WORDS = {
+    "I",
+    "II",
+    "III",
+    "IV",
+    "V",
+    "VI",
+    "VII",
+    "VIII",
+    "IX",
+    "X",
+    "N",
+    "S",
+    "E",
+    "W",
+    "NE",
+    "NW",
+    "SE",
+    "SW",
+}
+
+
+def pretty_name(name):
+    """Name for the report: 'THE GRAND FKA VENETIA' -> 'The Grand'."""
+    if not name:
+        return None
+    name = re.split(r"\s+(?:F/K/A|FKA|A/K/A|AKA|N/K/A|NKA|K/A)\b", name.upper())[0]
+    words = [w for w in name.split() if w not in NAME_DROP]
+    pretty = []
+    for i, w in enumerate(words):
+        if w == "NO":
+            pretty.append("No.")
+        elif w in UPPER_WORDS:  # roman numerals and directions
+            pretty.append(w)
+        elif (
+            re.fullmatch(r"\d+(ST|ND|RD|TH)", w) or w in LOWER_WORDS and i > 0
+        ):  # 10TH -> 10th
+            pretty.append(w.lower())
+        else:
+            pretty.append(w.capitalize())
+    return " ".join(pretty) or None
 
 
 def days_since(ms):
@@ -345,6 +404,7 @@ def building_summary(parent_folio, fields):
         "towers": dict(towers.most_common()),
         "zip": (rows[0]["TRUE_SITE_ZIP_CODE"] or "")[:5],
         "condo_name": m.group(1) if m else None,
+        "name": pretty_name(m.group(1) if m else None),
         "units": len(rows),
         "estimate_floors": max(floors) if floors else None,
         "year_of_construction": min(years) if years else None,
@@ -496,6 +556,16 @@ def next_recert(building, tower):
     return {"year": year, "overdue": year < THIS_YEAR, "basis": basis}
 
 
+def add_next_due(building):
+    """next_due per tower; a tower with no record whose first recertification is in the future turns green."""
+    for tower in building["recert_by_tower"].values():
+        tower["next_due"] = next_recert(building, tower)
+        due = tower["next_due"]
+        if tower["label"] == "no record" and due and due["year"] > THIS_YEAR:
+            tower["label"] = "Not due yet"
+            tower["light"] = LIGHTS["Not due yet"]
+
+
 def dbpr_info(building):
     """DBPR projects, Delinquent status and SIRS reports, from match_condos.py and match_sirs.py."""
     parent = building["parent_folio"]
@@ -525,6 +595,58 @@ def dbpr_info(building):
     }
 
 
+def association_questions(building):
+    """Questions for the buyer to ask the association, based on what the data shows or lacks."""
+    questions = [
+        "Request an estoppel letter and written confirmation that there are no open code violations, "
+        "unsafe structure cases or liens (the City of Miami does not publish these cases).",
+        "Are any special assessments approved, planned or under discussion?",
+    ]
+    for tower, t in building["recert_by_tower"].items():
+        if t["label"] == "no record":
+            questions.append(
+                f"{tower}: request the recertification certificate (no record found in City data)."
+            )
+        elif t["light"] != "green":
+            questions.append(
+                f"{tower}: what is the status of the recertification ({t['label']}) and when will it be completed?"
+            )
+
+    floors = building["estimate_floors"]
+    built = building["year_of_construction"]
+    if (
+        floors is None or floors >= 3
+    ):  # milestone and SIRS apply to 3+ floors; unknown: be strict
+        if built is None or THIS_YEAR - built >= first_recert_age(building):
+            questions.append(
+                "Request the latest milestone inspection report and any repairs it requires."
+            )
+        if building["dbpr"]["sirs_reported"]:
+            questions.append(
+                "Request a copy of the Structural Integrity Reserve Study (SIRS) and the reserve funding plan."
+            )
+        else:
+            questions.append(
+                "Request the Structural Integrity Reserve Study (SIRS): it is not in the DBPR registry."
+            )
+
+    if building["dbpr"]["delinquent"]:
+        questions.append(
+            "Is the association current on its annual fee to DBPR? It is listed as delinquent."
+        )
+    if building["open_permits"]:
+        numbers = ", ".join(p["PermitNumber"] for p in building["open_permits"][:3])
+        questions.append(
+            f"Was the work under these permits completed and inspected? {numbers}"
+        )
+    zone = (building["flood"] or {}).get("zone") or ""
+    if zone.startswith(("A", "V")):  # high-risk FEMA zones
+        questions.append(
+            "Request the building's Elevation Certificate and the cost of the master flood insurance policy."
+        )
+    return questions
+
+
 if __name__ == "__main__":
     fields = safe_fields(LAYERS["property"], PROPERTY_FIELDS)
     building = building_summary("0141370780001", fields)
@@ -533,14 +655,14 @@ if __name__ == "__main__":
     recert_fields = safe_fields(LAYERS["recert"], RECERT_FIELDS)
     building["recert"] = recert_records(building, recert_fields)
     building["recert_by_tower"] = recert_by_tower(building, building["recert"])
-    building["recert_light"] = building_light(building["recert_by_tower"])
     permit_fields = safe_fields(LAYERS["ibuild_permits"], PERMIT_FIELDS)
     building["open_permits"] = open_permits(building, permit_fields)
     point = building_point(building)
     building["flood"] = flood_zone(point)
     building["coast"] = coast_distance(point)
-    for tower in building["recert_by_tower"].values():
-        tower["next_due"] = next_recert(building, tower)
+    add_next_due(building)  # needs coast; may turn "no record" into "Not due yet"
+    building["recert_light"] = building_light(building["recert_by_tower"])
     building["dbpr"] = dbpr_info(building)
+    building["questions"] = association_questions(building)
     building["folios"] = building["folios"][:5]
     print(json.dumps(building, indent=2, ensure_ascii=False))
