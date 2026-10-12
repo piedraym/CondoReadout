@@ -90,6 +90,20 @@ PERMIT_FIELDS = [
 
 BAD_PERMIT_STATUSES = ("Hold", "Expired", "Revoked")
 
+# First word found in DOR_DESC decides the kind of unit (order matters)
+UNIT_TYPE_WORDS = [
+    ("COOPERATIVE", "co-op"),
+    ("DOCK", "boat dock"),
+    ("PARKING", "parking"),
+    ("HOTEL", "hotel"),
+    ("OFFICE", "office"),
+    ("PROFESSIONAL", "office"),
+    ("STORE", "retail"),
+    ("CONDOMINIUM - RESIDENTIAL", "residential"),
+    ("COMMON AREAS", "residential"),
+]
+
+
 NAME_NOISE = {
     "A",
     "THE",
@@ -386,6 +400,17 @@ def query(url, where, fields, geometry=False):
         offset += len(data["features"])
 
 
+def unit_type(dor_desc):
+    """Kind of unit from the Property Appraiser's land use: 'STORE : CONDOMINIUM - COMMERCIAL' -> 'retail'."""
+    text = dor_desc or ""
+    if text.startswith("VACANT"):
+        return "not built"
+    for word, kind in UNIT_TYPE_WORDS:
+        if word in text:
+            return kind
+    return "other commercial"
+
+
 def common_year(years):
     """Most common year in a Counter of years; the older one on a tie."""
     return max(years, key=lambda year: (years[year], -year))
@@ -439,6 +464,9 @@ def building_summary(parent_folio, fields):
         "condo_name": m.group(1) if m else None,
         "name": pretty_name(m.group(1) if m else None),
         "units": len(rows),
+        "unit_types": dict(
+            Counter(unit_type(r["DOR_DESC"]) for r in rows).most_common()
+        ),
         "estimate_floors": max(floors) if floors else None,
         "tower_years": tower_years,
         "year_of_construction": min(tower_years.values())

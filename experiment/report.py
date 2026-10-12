@@ -24,6 +24,19 @@ PERMIT_STATUS = {
     "Cancelled": "cancelled",
 }
 
+SINGLE_TYPE = {  # condos where every unit is of the same kind
+    "residential": "Residential condo",
+    "co-op": "Residential co-op",
+    "office": "Office condo",
+    "retail": "Retail condo",
+    "hotel": "Hotel condo",
+    "boat dock": "Boat dock condo",
+    "parking": "Parking condo",
+    "other commercial": "Commercial condo",
+    "not built": "Not built yet",
+}
+
+
 RESULT_TITLES = {
     "green": "Green · No recertification issues found",
     "yellow": "Yellow · Items to verify",
@@ -232,6 +245,17 @@ def compliance_rows(building):
     return rows
 
 
+def type_text(unit_types):
+    """'Residential condo', or '337 residential, 118 retail' when the units differ."""
+    kinds = list(unit_types.items())  # most common first
+    if len(kinds) == 1:
+        return SINGLE_TYPE.get(kinds[0][0], "Condo")
+    text = ", ".join(f"{n} {kind}" for kind, n in kinds[:2])
+    if len(kinds) > 2:
+        text += f", {sum(n for _, n in kinds[2:])} other"
+    return text
+
+
 def result_text(tower):
     """Sentence for the overall result, from the worst tower."""
     if tower["label"] == "no record" and not tower.get("next_due"):
@@ -271,6 +295,7 @@ def report_context(building):
         else "Unknown",
         "floors": building["estimate_floors"] or "—",
         "units": building["units"],
+        "type_text": type_text(building["unit_types"]),
         "coast": f"< {coast['within_miles']} mi"
         if coast and coast["within_miles"]
         else "> 3 mi",
