@@ -2,9 +2,11 @@ import csv
 import json
 import re
 import sys
+import time
 from collections import Counter, defaultdict
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 
@@ -129,10 +131,35 @@ def match_name(text):
     return " ".join(w for w in words if w not in NAME_NOISE)
 
 
+TIMEOUT = 60  # seconds to wait for one answer
+TRIES = 3  # the City's server sometimes hangs: ask again before giving up
+RETRY_WAIT = 2  # seconds before the second try, doubled for each later one
+
+
+def request_json(method, url, **kwargs):
+    """GET or POST an ArcGIS URL and return its JSON, trying again on timeouts and server errors."""
+    host = urlparse(url).netloc
+    for attempt in range(1, TRIES + 1):
+        try:
+            r = requests.request(method, url, timeout=TIMEOUT, **kwargs)
+            if r.status_code < 500:
+                r.raise_for_status()  # a 4xx is our mistake: retrying will not help
+                data = r.json()
+                if "error" in data:
+                    raise RuntimeError(data["error"])
+                return data
+            problem = f"HTTP {r.status_code}"
+        except (requests.Timeout, requests.ConnectionError) as error:
+            problem = type(error).__name__
+        if attempt < TRIES:
+            wait = RETRY_WAIT * 2 ** (attempt - 1)
+            print(f" ! {problem} from {host}, trying again in {wait}s", file=sys.stderr)
+            time.sleep(wait)
+    raise RuntimeError(f"No answer from {host} after {TRIES} tries ({problem})")
+
+
 def layer_info(url):
-    r = requests.get(url, params={"f": "json"}, timeout=30)
-    r.raise_for_status()
-    return r.json()
+    return request_json("GET", url, params={"f": "json"})
 
 
 def safe_fields(url, wanted):
@@ -193,11 +220,7 @@ def point_query(url, x, y, fields, distance=None):
     if distance:
         params["distance"] = distance
         params["units"] = "esriSRUnit_StatuteMile"
-    r = requests.get(f"{url}/query", params=params, timeout=60)
-    r.raise_for_status()
-    data = r.json()
-    if "error" in data:
-        raise RuntimeError(data["error"])
+    data = request_json("GET", f"{url}/query", params=params)
     return [f["attributes"] for f in data["features"]]
 
 
@@ -355,12 +378,9 @@ def query(url, where, fields, geometry=False):
             "resultOffset": offset,
             "f": "json",
         }
-        r = requests.post(f"{url}/query", data=params, timeout=60)
-        r.raise_for_status()
-        data = r.json()
-        if "error" in data:
-            raise RuntimeError(data["error"])
+        data = request_json("POST", f"{url}/query", data=params)
         out.extend(data["features"])
+
         if not data.get("exceededTransferLimit"):
             return out
         offset += len(data["features"])
