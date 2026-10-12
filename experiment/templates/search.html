@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Building Health Report · Search</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f7f5f1; color: #1f2430; font: 15px/1.4 Helvetica, Arial, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 60px 20px; }
+  .kicker { font-size: 11px; font-weight: bold; letter-spacing: 0.12em; color: #5d6470; }
+  h1 { font: bold 30px/1.15 Georgia, "Times New Roman", serif; margin: 6px 0 20px; }
+  .box { position: relative; }
+  input { width: 100%; padding: 13px 15px; font: inherit; border: 1px solid #b9b4a8; background: #fff; }
+  input:focus { outline: 2px solid #d18f00; border-color: #d18f00; }
+  ul { list-style: none; margin: 0; padding: 0; position: absolute; left: 0; right: 0; background: #fff; border: 1px solid #b9b4a8; border-top: 0; }
+  ul:empty { display: none; }
+  li { padding: 9px 15px; cursor: pointer; border-top: 1px solid #eee9df; }
+  li.active, li:hover { background: #fff2dc; }
+  li .address { font-weight: bold; }
+  li .name { color: #4a4f5a; font-size: 13px; }
+  .empty { padding: 9px 15px; color: #4a4f5a; cursor: default; }
+  .picked { margin-top: 26px; background: #fff; border: 1px solid #d9d5cc; padding: 16px 18px; }
+  .picked h2 { font: bold 20px Georgia, "Times New Roman", serif; margin: 0 0 4px; }
+  .picked p { margin: 3px 0; color: #3d4350; }
+  code { display: block; margin-top: 10px; padding: 9px 11px; background: #f1eee7; font: 13px Menlo, Consolas, monospace; }
+  .hint { margin-top: 12px; font-size: 13px; color: #5d6470; }
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">BUILDING HEALTH REPORT</div>
+  <h1>Find a condo in the City of Miami</h1>
+  <div class="box">
+    <input id="q" type="text" placeholder="Type an address or a building name" autocomplete="off" autofocus>
+    <ul id="results"></ul>
+  </div>
+  <p class="hint">{{ index|length }} addresses · try “1717 n bay”, “north river” or “grand”.</p>
+  <div id="picked"></div>
+</main>
+
+<script>
+const INDEX = {{ index|tojson }};
+const MAX_RESULTS = 8;
+
+// The same spelling the Property Appraiser uses: "North" -> "n", "Street" -> "st"
+const WORDS = {north: "n", south: "s", east: "e", west: "w", northeast: "ne", northwest: "nw",
+  southeast: "se", southwest: "sw", street: "st", avenue: "ave", av: "ave", drive: "dr", road: "rd",
+  court: "ct", place: "pl", terrace: "ter", boulevard: "blvd", lane: "ln", circle: "cir"};
+
+function tokens(text) {
+  return text.toLowerCase().replace(/[.,#]/g, " ").split(/\s+/).filter(Boolean)
+    .map(w => WORDS[w] || w.replace(/^(\d+)(st|nd|rd|th)$/, "$1"));
+}
+
+const DIRECTIONS = new Set(["n", "s", "e", "w", "ne", "nw", "se", "sw"]);
+
+// Text we search in, built once per row (spaces around so we can match whole words)
+for (const row of INDEX) {
+  row.nameText = " " + tokens(row.name).join(" ") + " ";
+  row.nameStart = row.nameText.replace(/^ the /, " ");  // "The Grand" also ranks for "grand"
+  row.text = " " + tokens(row.address).join(" ") + row.nameText;
+}
+
+function search(query) {
+  const words = tokens(query);
+  if (!words.length) return [];
+  // every typed word must start a word of the address or the name; directions must match whole
+  const found = INDEX.filter(row => words.every(
+    w => row.text.includes(" " + w + (DIRECTIONS.has(w) ? " " : ""))));
+  const start = " " + words.join(" ");
+  const rank = row => row.text.startsWith(start) ? 0 : (row.nameText.startsWith(start) || row.nameStart.startsWith(start)) ? 1 : 2;
+  found.sort((a, b) => rank(a) - rank(b));  // address starts with it, then name starts with it
+  return found.slice(0, MAX_RESULTS);
+}
+
+const input = document.getElementById("q");
+const list = document.getElementById("results");
+const picked = document.getElementById("picked");
+let shown = [], active = -1;
+
+function render() {
+  list.innerHTML = "";
+  shown.forEach((row, i) => {
+    const li = document.createElement("li");
+    if (i === active) li.className = "active";
+    li.innerHTML = '<div class="address"></div><div class="name"></div>';
+    li.children[0].textContent = row.address;
+    li.children[1].textContent = `${row.name} · ${row.units} units · Miami, FL ${row.zip}`;
+    li.addEventListener("mousedown", () => pick(row));
+    list.appendChild(li);
+  });
+  if (!shown.length && input.value.trim()) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "No City of Miami condo matches that.";
+    list.appendChild(li);
+  }
+}
+
+function pick(row) {
+  input.value = row.address;
+  shown = []; active = -1; render();
+  picked.innerHTML = '<div class="picked"><h2></h2><p></p><p></p><code></code></div>';
+  const box = picked.firstChild.children;
+  box[0].textContent = row.name;
+  box[1].textContent = `${row.address}, Miami, FL ${row.zip} · ${row.units} units`;
+  box[2].textContent = `Folio ${row.folio}`;
+  box[3].textContent = `../.venv/bin/python report.py ${row.folio}`;
+}
+
+input.addEventListener("input", () => { shown = search(input.value); active = -1; picked.innerHTML = ""; render(); });
+input.addEventListener("keydown", event => {
+  if (event.key === "ArrowDown") active = Math.min(active + 1, shown.length - 1);
+  else if (event.key === "ArrowUp") active = Math.max(active - 1, 0);
+  else if (event.key === "Enter" && shown.length) return pick(shown[Math.max(active, 0)]);
+  else if (event.key === "Escape") shown = [];
+  else return;
+  event.preventDefault();
+  render();
+});
+input.addEventListener("blur", () => { shown = []; render(); });
+</script>
+</body>
+</html>
