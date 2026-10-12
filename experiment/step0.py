@@ -90,6 +90,9 @@ PERMIT_FIELDS = [
 
 BAD_PERMIT_STATUSES = ("Hold", "Expired", "Revoked")
 
+FLOOR_IN_NUMBER = re.compile(r"(?<!\d)(\d{3,4})(?!\d)")  # 1204, E-1001, 806A, PH 5801
+FLOOR_AND_LETTER = re.compile(r"(\d{1,2})-?([A-Z]{1,2})")  # 43-A, 12B
+
 # First word found in DOR_DESC decides the kind of unit (order matters)
 UNIT_TYPE_WORDS = [
     ("COOPERATIVE", "co-op"),
@@ -411,6 +414,40 @@ def unit_type(dor_desc):
     return "other commercial"
 
 
+def is_street_number(row):
+    """True when the unit number is the house number of its own address: unit '2732' at '2732 SW 26 ST'."""
+    unit = (row["TRUE_SITE_UNIT"] or "").strip()
+    return unit.isdigit() and (row["TRUE_SITE_ADDR"] or "").split()[:1] == [unit]
+
+
+def estimate_floors(units):
+    """Highest floor in the unit numbers ('1204' and '12-B' are floor 12), or None if they do not look like floors."""
+    by_number, by_letter, letters = set(), Counter(), set()
+    for unit in units:
+        unit = (unit or "").strip().upper()
+        number = FLOOR_IN_NUMBER.search(unit)
+        letter = FLOOR_AND_LETTER.fullmatch(unit)
+        if number:
+            by_number.add(int(number.group(1)[:-2]))
+        elif letter:
+            by_letter[int(letter.group(1))] += 1
+            letters.add(letter.group(2))
+    # '1A'..'61F' can be 61 townhouses: trust them only with several units per floor
+    if (
+        by_letter
+        and len(letters) >= 3
+        and sum(by_letter.values()) >= 2 * max(by_letter)
+    ):
+        by_number.update(by_letter)
+    floors = by_number - {0}
+    if not floors:
+        return None
+    top = max(floors)
+    # duplexes use the street number as the unit ('2975', '2977'): every unit on "floor 29"
+    enough = 3 if top > 5 else min(top, 2)
+    return top if len(floors) >= enough else None
+
+
 def common_year(years):
     """Most common year in a Counter of years; the older one on a tie."""
     return max(years, key=lambda year: (years[year], -year))
@@ -441,13 +478,6 @@ def building_summary(parent_folio, fields):
             years_by_tower[base_address(r)][r["YEAR_BUILT"]] += 1
     tower_years = {tower: common_year(years) for tower, years in years_by_tower.items()}
 
-    floors = [
-        int(r["TRUE_SITE_UNIT"][:-2])
-        for r in rows
-        if r["TRUE_SITE_UNIT"]
-        and r["TRUE_SITE_UNIT"].isdigit()
-        and len(r["TRUE_SITE_UNIT"]) >= 3
-    ]
     # Condominium Name
     condo_legal_name = rows[0]["LEGAL"] or ""
     m = re.match(r"^(.*?)\s+UNIT\b", condo_legal_name)
@@ -467,7 +497,9 @@ def building_summary(parent_folio, fields):
         "unit_types": dict(
             Counter(unit_type(r["DOR_DESC"]) for r in rows).most_common()
         ),
-        "estimate_floors": max(floors) if floors else None,
+        "estimate_floors": estimate_floors(
+            r["TRUE_SITE_UNIT"] for r in rows if not is_street_number(r)
+        ),
         "tower_years": tower_years,
         "year_of_construction": min(tower_years.values())
         if tower_years
