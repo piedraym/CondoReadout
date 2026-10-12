@@ -386,6 +386,11 @@ def query(url, where, fields, geometry=False):
         offset += len(data["features"])
 
 
+def common_year(years):
+    """Most common year in a Counter of years; the older one on a tie."""
+    return max(years, key=lambda year: (years[year], -year))
+
+
 def building_summary(parent_folio, fields):
     """Junta todas las unidades de un condominio en un resumen de un edificio"""
     all_rows = [
@@ -404,7 +409,13 @@ def building_summary(parent_folio, fields):
     master_legal = master[0]["LEGAL"] if master else None
 
     folios = [r["FOLIO"] for r in rows]
-    years = [r["YEAR_BUILT"] for r in rows if r["YEAR_BUILT"]]  # 0 = desconocido
+    # Year per tower: the most common year of its units, so one odd unit does not age the building
+    years_by_tower = defaultdict(Counter)
+    for r in rows:
+        if r["YEAR_BUILT"]:  # 0 = unknown
+            years_by_tower[base_address(r)][r["YEAR_BUILT"]] += 1
+    tower_years = {tower: common_year(years) for tower, years in years_by_tower.items()}
+
     floors = [
         int(r["TRUE_SITE_UNIT"][:-2])
         for r in rows
@@ -429,9 +440,12 @@ def building_summary(parent_folio, fields):
         "name": pretty_name(m.group(1) if m else None),
         "units": len(rows),
         "estimate_floors": max(floors) if floors else None,
-        "year_of_construction": min(years) if years else None,
+        "tower_years": tower_years,
+        "year_of_construction": min(tower_years.values())
+        if tower_years
+        else None,  # oldest tower
         # declared but not built: no year, and every unit is taxed as vacant
-        "unbuilt": not years
+        "unbuilt": not tower_years
         and all((r["DOR_DESC"] or "").startswith("VACANT") for r in rows),
         "folios": folios,
     }
@@ -481,6 +495,7 @@ def recert_by_tower(building, records):
             "year_due": latest["RecertificateYear"] if latest else None,
             "status_date": latest["PlanStatusDate"] if latest else None,
             "plan": latest["PlanNumber"] if latest else None,
+            "year_built": building["tower_years"].get(tower),
         }
     return result
 
@@ -585,7 +600,7 @@ def next_recert(building, tower):
     elif tower["year_due"]:  # Pending or Canceled: this cycle is still open
         year, basis = tower["year_due"], "open cycle"
     else:  # no record
-        built = building["year_of_construction"]
+        built = tower["year_built"] or building["year_of_construction"]
         if not built:
             return None
         age = first_recert_age(building)
@@ -736,7 +751,10 @@ def build_report(parent_folio):
 
 if __name__ == "__main__":
     folio = sys.argv[1] if len(sys.argv) > 1 else "0132310480001"  # The Grand
-    building = build_report(folio)
+    try:
+        building = build_report(folio)
+    except RuntimeError as error:
+        raise SystemExit(f"Could not build the report: {error}")
     if not building:
         raise SystemExit("Sin resultados para ese folio")
     building["folios"] = building["folios"][:5]  # only to keep the printout short

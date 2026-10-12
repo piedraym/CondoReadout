@@ -304,7 +304,10 @@ def render_html(building):
 
 if __name__ == "__main__":
     folio = sys.argv[1] if len(sys.argv) > 1 else "0132310480001"  # The Grand
-    building = build_report(folio)
+    try:
+        building = build_report(folio)
+    except RuntimeError as error:
+        raise SystemExit(f"Could not build the report: {error}")
     if not building:
         raise SystemExit("Sin resultados para ese folio")
     OUT.mkdir(exist_ok=True)
