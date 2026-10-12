@@ -3,7 +3,7 @@ import json
 import re
 import sys
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -176,7 +176,7 @@ def ms_to_date(ms):
     """ArcGIS date are in milliseconds"""
     if ms is None:
         return None
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).date().isoformat()
+    return datetime.fromtimestamp(ms / 1000, tz=UTC).date().isoformat()
 
 
 def point_query(url, x, y, fields, distance=None):
@@ -248,6 +248,7 @@ LIGHTS = {
     "Pending: stalled": "red",
     "Canceled": "red",
     "Not due yet": "green",  # no record, but the first recertification is not due
+    "Not built yet": "green",
 }
 LIGHT_ORDER = ["green", "yellow", "red"]
 
@@ -409,6 +410,9 @@ def building_summary(parent_folio, fields):
         "units": len(rows),
         "estimate_floors": max(floors) if floors else None,
         "year_of_construction": min(years) if years else None,
+        # declared but not built: no year, and every unit is taxed as vacant
+        "unbuilt": not years
+        and all((r["DOR_DESC"] or "").startswith("VACANT") for r in rows),
         "folios": folios,
     }
 
@@ -574,9 +578,15 @@ def add_next_due(building):
     for tower in building["recert_by_tower"].values():
         tower["next_due"] = next_recert(building, tower)
         due = tower["next_due"]
-        if tower["label"] == "no record" and due and due["year"] > THIS_YEAR:
+        if tower["label"] != "no record":
+            continue
+        if building["unbuilt"]:
+            tower["label"] = "Not built yet"
+        elif due and due["year"] > THIS_YEAR:
             tower["label"] = "Not due yet"
-            tower["light"] = LIGHTS["Not due yet"]
+        else:
+            continue  # still "no record": keeps its yellow light
+        tower["light"] = LIGHTS[tower["label"]]
 
 
 def dbpr_info(building):
@@ -619,7 +629,13 @@ def association_questions(building):
         if t["light"] != "green":
             by_label[t["label"]].append(tower)
     for label, towers in by_label.items():
-        where = ", ".join(towers) if len(towers) <= 3 else f"{len(towers)} addresses"
+        if len(towers) > 3:
+            where = f"{len(towers)} addresses"
+        else:
+            where = (
+                ", ".join(t for t in towers if t) or "The building"
+            )  # no site address on record
+
         if label == "no record":
             questions.append(
                 f"{where}: request the recertification certificate (no record found in City data)."
@@ -631,7 +647,12 @@ def association_questions(building):
 
     floors = building["estimate_floors"]
     built = building["year_of_construction"]
-    if (
+    if building["unbuilt"]:
+        questions.append(
+            "The building is not completed yet: ask the developer for the expected completion date "
+            "and the estimated association budget and reserves."
+        )
+    elif (
         floors is None or floors >= 3
     ):  # milestone and SIRS apply to 3+ floors; unknown: be strict
         if built is None or THIS_YEAR - built >= first_recert_age(building):

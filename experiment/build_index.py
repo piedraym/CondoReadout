@@ -20,10 +20,18 @@ units = [
     for f in query(
         LAYERS["property"],
         "FOLIO LIKE '01%' AND PARENT_FOLIO IS NOT NULL",
-        ["PARENT_FOLIO", "TRUE_SITE_ADDR", "TRUE_SITE_UNIT", "TRUE_SITE_ZIP_CODE", "LEGAL"],
+        [
+            "PARENT_FOLIO",
+            "TRUE_SITE_ADDR",
+            "TRUE_SITE_UNIT",
+            "TRUE_SITE_ZIP_CODE",
+            "LEGAL",
+        ],
     )
 ]
-condos = defaultdict(lambda: {"addresses": set(), "units": 0, "name": None, "zip": None})
+condos = defaultdict(
+    lambda: {"addresses": set(), "units": 0, "name": None, "zip": None}
+)
 for u in units:
     c = condos[u["PARENT_FOLIO"]]
     c["units"] += 1
@@ -38,10 +46,10 @@ for u in units:
 # 2. One row per address; a condo without a name is shown by its address
 index = []
 for parent, c in condos.items():
-    for address in c["addresses"]:
+    for address in c["addresses"] or [""]:  # no site address: searchable by name only
         index.append(
             {
-                "address": pretty_name(address),
+                "address": pretty_name(address) or c["name"] or parent,
                 "name": c["name"] or pretty_name(address),
                 "zip": c["zip"],
                 "units": c["units"],
@@ -53,8 +61,12 @@ index.sort(key=lambda row: (row["address"], row["name"]))
 OUT.mkdir(exist_ok=True)
 (OUT / "condo_index.json").write_text(json.dumps(index, indent=1), encoding="utf-8")
 
-env = Environment(loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape())
-(OUT / "search.html").write_text(env.get_template("search.html").render(index=index), encoding="utf-8")
+env = Environment(
+    loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape()
+)
+(OUT / "search.html").write_text(
+    env.get_template("search.html").render(index=index), encoding="utf-8"
+)
 
 print(f"{len(condos)} condos, {len(index)} addresses")
 print(f"-> {OUT / 'condo_index.json'}")

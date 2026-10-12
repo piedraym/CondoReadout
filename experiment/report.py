@@ -39,6 +39,11 @@ RECERT_TEXT = {
         "green",
         "The first recertification is not due yet.",
     ),
+    "Not built yet": (
+        "NOT BUILT YET",
+        "green",
+        "The building is not completed yet according to county records, so recertification does not apply yet.",
+    ),
     "no record": (
         "NO RECORD",
         "yellow",
@@ -108,6 +113,9 @@ def recert_detail(tower):
     """One sentence with the dates we know for a tower."""
     due = tower.get("next_due")
     label = tower["label"]
+    if label == "Not built yet":
+        return "No year built on record; the units are listed as vacant."
+
     if label in ("no record", "Not due yet"):
         return (
             f"Estimated due in {due['year']} ({due['basis']})."
@@ -155,7 +163,7 @@ def compliance_rows(building):
 
     floors, built = building["estimate_floors"], building["year_of_construction"]
     dbpr = building["dbpr"]
-    if floors is None or floors >= 3:
+    if not building["unbuilt"] and (floors is None or floors >= 3):
         if built and THIS_YEAR - built < first_recert_age(building):
             rows.append(
                 {
@@ -224,12 +232,25 @@ def compliance_rows(building):
     return rows
 
 
+def result_text(tower):
+    """Sentence for the overall result, from the worst tower."""
+    if tower["label"] == "no record" and not tower.get("next_due"):
+        return (
+            "No recertification record was found, and the year built is not on record."
+        )
+    return RECERT_TEXT[tower["label"]][2]
+
+
 def report_context(building):
     """Display values for the template, computed from the building data."""
-    towers = list(building["towers"])
+    towers = [
+        t for t in building["towers"] if t
+    ]  # a few condos have no site address on record
     address = ", ".join(pretty_name(t) for t in towers[:2])
     if len(towers) > 2:
         address += f" + {len(towers) - 2} more"
+    city = f"Miami, FL {building['zip']}"
+
     worst = max(
         building["recert_by_tower"].values(),
         key=lambda t: LIGHT_ORDER.index(t["light"]),
@@ -239,11 +260,15 @@ def report_context(building):
     zone, zone_text = flood_text(building["flood"])
     permits = building["permits"]
     return {
-        "name": building["name"] or address,
-        "address": f"{address}, Miami, FL {building['zip']}",
+        "name": building["name"] or address or "Condominium",
+        "address": f"{address}, {city}" if address else city,
         "folio": format_folio(building["parent_folio"]),
         "year_built": built or "—",
-        "age": f"{THIS_YEAR - built} years old" if built else "Unknown",
+        "age": f"{THIS_YEAR - built} years old"
+        if built
+        else "Not built yet"
+        if building["unbuilt"]
+        else "Unknown",
         "floors": building["estimate_floors"] or "—",
         "units": building["units"],
         "coast": f"< {coast['within_miles']} mi"
@@ -256,7 +281,7 @@ def report_context(building):
         "zone_text": zone_text,
         "light": building["recert_light"],
         "result_title": RESULT_TITLES[building["recert_light"]],
-        "result_text": RECERT_TEXT[worst["label"]][2],
+        "result_text": result_text(worst),
         "compliance": compliance_rows(building),
         "permits_total": permits["total"],
         "permits_recent": [
