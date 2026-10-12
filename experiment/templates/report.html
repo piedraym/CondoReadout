@@ -4,12 +4,15 @@
 <meta charset="utf-8">
 <title>Building Health Report · {{ name }}</title>
 <style>
-  @page { size: Letter; margin: 0; }
+  @page { size: Letter; margin: 0.3in 0 0.9in 0; background: #f7f5f1; }  /* bottom margin holds the footer */
+  @media screen { .page { padding: 0.3in 0; } }
+  @media print { footer { position: fixed; bottom: -0.82in; left: 0; right: 0; } }  /* repeated on every page */
+
   * { box-sizing: border-box; }
   body { margin: 0; background: #f7f5f1; color: #1f2430; font: 12px/1.38 Helvetica, Arial, sans-serif; }
-  .page { width: 8.5in; min-height: 11in; margin: 0 auto; display: flex; flex-direction: column; }
+  .page { width: 8.5in; margin: 0 auto; }
   .pad { padding-left: 0.55in; padding-right: 0.55in; }
-  header { display: flex; justify-content: space-between; align-items: flex-start; padding-top: 0.3in; padding-bottom: 0.16in; border-bottom: 1px solid #d9d5cc; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 0.16in; border-bottom: 1px solid #d9d5cc; }
   .kicker { font-size: 11px; font-weight: bold; letter-spacing: 0.12em; color: #5d6470; }
   h1 { font: bold 29px/1.15 Georgia, "Times New Roman", serif; margin: 4px 0 4px; }
   .sub { color: #3d4350; font-size: 13px; }
@@ -58,9 +61,11 @@
   .totals { margin-top: 6px !important; padding-top: 5px; border-top: 1px solid #e6e2da; color: #4a4f5a; }
   ol { margin: 0; padding-left: 20px; }
   ol li { margin-bottom: 3px; }
-  .grow { flex: 1; }
-  footer { margin-top: 12px; padding-top: 9px; padding-bottom: 0.22in; border-top: 1px solid #d9d5cc; font-size: 10px; color: #4a4f5a; }
+  footer { margin-top: 12px; padding-top: 9px; border-top: 1px solid #d9d5cc; font-size: 10px; color: #4a4f5a; }
   footer p { margin: 0 0 3px; }
+  tr, .card, .result, .tile, li { break-inside: avoid; }
+  h2 { break-after: avoid; }
+
 </style>
 </head>
 <body>
@@ -125,7 +130,6 @@
     </ol>
   </div>
 
-  <div class="grow"></div>
   <footer class="pad">
     <p><strong>Sources:</strong> Miami-Dade County Property Appraiser (year built, units), City of Miami (recertification, iBuild permits), Florida DBPR (condominium registry, SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County.</p>
     <p>This report summarizes public records and is not an engineering inspection, an appraisal or legal advice. Dates marked as estimated follow the county rule and may differ from the City's. Verify every item with the association and a qualified professional.</p>

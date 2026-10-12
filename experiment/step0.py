@@ -612,17 +612,21 @@ def association_questions(building):
     """Questions for the buyer to ask the association, based on what the data shows or lacks."""
     questions = [
         "Request an estoppel letter and written confirmation of no open code violations, unsafe structure cases or liens.",
-        "unsafe structure cases or liens (the City of Miami does not publish these cases).",
         "Are any special assessments approved, planned or under discussion?",
     ]
+    by_label = defaultdict(list)  # towers that are not green, grouped by status
     for tower, t in building["recert_by_tower"].items():
-        if t["label"] == "no record":
+        if t["light"] != "green":
+            by_label[t["label"]].append(tower)
+    for label, towers in by_label.items():
+        where = ", ".join(towers) if len(towers) <= 3 else f"{len(towers)} addresses"
+        if label == "no record":
             questions.append(
-                f"{tower}: request the recertification certificate (no record found in City data)."
+                f"{where}: request the recertification certificate (no record found in City data)."
             )
-        elif t["light"] != "green":
+        else:
             questions.append(
-                f"{tower}: what is the status of the recertification ({t['label']}) and when will it be completed?"
+                f"{where}: what is the status of the recertification ({label}) and when will it be completed?"
             )
 
     floors = building["estimate_floors"]
