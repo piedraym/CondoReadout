@@ -177,6 +177,24 @@ def dbpr_info(db, building):
     }
 
 
+def data_dates(db, building):
+    """Day of the data behind the report: {'local': ..., 'state': ...} as ISO dates, None if never loaded."""
+    latest = dict(
+        db.execute(
+            # the last good load of each source
+            "SELECT DISTINCT ON (source) source, data_date FROM ingest_run WHERE status = 'ok'"
+            " AND (jurisdiction_code = %s OR jurisdiction_code IS NULL) ORDER BY source, id DESC",
+            [building["parent_folio"][:2]],
+        ).fetchall()
+    )
+    local = [latest.get(source) for source in ("property", "recert", "permits")]
+    return {
+        # the report is as old as its oldest source
+        "local": min(local).isoformat() if all(local) else None,
+        "state": latest["dbpr"].isoformat() if latest.get("dbpr") else None,
+    }
+
+
 def build_report(parent_folio):
     """Everything the report needs for one condo, or None if the condo is not in the database."""
     with connect() as db:
@@ -191,4 +209,5 @@ def build_report(parent_folio):
         building["recert_light"] = building_light(building["recert_by_tower"])
         building["dbpr"] = dbpr_info(db, building)
         building["questions"] = association_questions(building)
+        building["data_dates"] = data_dates(db, building)
     return building

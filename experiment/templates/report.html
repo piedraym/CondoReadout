@@ -133,7 +133,7 @@
   <footer class="pad">
     <p><strong>Sources:</strong> Miami-Dade County Property Appraiser (year built, units), City of Miami (recertification, iBuild permits), Florida DBPR (condominium registry, SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County.</p>
     <p>This report summarizes public records and is not an engineering inspection, an appraisal or legal advice. Dates marked as estimated follow the county rule and may differ from the City's. Verify every item with the association and a qualified professional.</p>
-    <p>Generated {{ generated }} · Folio {{ folio }}</p>
+    <p>{% if data_text %}{{ data_text }} {% endif %}Generated {{ generated }} · Folio {{ folio }}</p>
   </footer>
 </div>
 </body>

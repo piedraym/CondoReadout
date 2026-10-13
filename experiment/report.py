@@ -267,6 +267,23 @@ def result_text(tower):
     return RECERT_TEXT[tower["label"]][2]
 
 
+def long_date(day):
+    """'2026-10-13' or a date -> 'October 13, 2026'."""
+    if isinstance(day, str):
+        day = date.fromisoformat(day)
+    return day.strftime("%B %d, %Y").replace(" 0", " ")
+
+
+def data_text(dates):
+    """Sentence for the footer about how recent the data is; '' when the dates are unknown."""
+    if not dates or not dates["local"]:
+        return ""
+    text = f"City and County records as of {long_date(dates['local'])}"
+    if dates["state"]:
+        text += f"; State (DBPR) records as of {long_date(dates['state'])}"
+    return text + "."
+
+
 def report_context(building):
     """Display values for the template, computed from the building data."""
     towers = [
@@ -318,7 +335,8 @@ def report_context(building):
         "permits_in_progress": len(permits["in_progress"]),
         "permits_not_closed": len(permits["not_closed"]),
         "questions": building["questions"],
-        "generated": date.today().strftime("%B %d, %Y").replace(" 0", " "),
+        "generated": long_date(date.today()),
+        "data_text": data_text(building.get("data_dates")),
     }
 
 

@@ -30,7 +30,10 @@ def ingest_run(db, source, code):
         log.error("%s is not in the jurisdiction table", code)
         raise SystemExit(1)
     started = time.monotonic()
-    run = SimpleNamespace(rows=None)
+    run = SimpleNamespace(
+        rows=None, data_date=None
+    )  # data_date: only when it is not today
+
     run.id = db.execute(
         "INSERT INTO ingest_run (source, jurisdiction_code) VALUES (%s, %s) RETURNING id",
         [source, code],
@@ -52,8 +55,9 @@ def ingest_run(db, source, code):
         )
         raise
     db.execute(
-        "UPDATE ingest_run SET finished_at = now(), status = 'ok', row_count = %s WHERE id = %s",
-        [run.rows, run.id],
+        "UPDATE ingest_run SET finished_at = now(), status = 'ok', row_count = %s,"
+        " data_date = COALESCE(%s, data_date) WHERE id = %s",
+        [run.rows, run.data_date, run.id],
     )
     db.commit()
     log.info(

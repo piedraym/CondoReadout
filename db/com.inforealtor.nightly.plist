@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.inforealtor.nightly</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/maitepiedrayera/mpiedray/infoRealtor/.venv/bin/python</string>
+        <string>/Users/maitepiedrayera/mpiedray/infoRealtor/experiment/nightly.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/maitepiedrayera/mpiedray/infoRealtor/experiment</string>
+    <!-- every day at 2:00; if the Mac was asleep, it runs when it wakes up -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <!-- what the script prints; the detail is in logs/inforealtor.log -->
+    <key>StandardOutPath</key>
+    <string>/Users/maitepiedrayera/mpiedray/infoRealtor/logs/nightly.out</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/maitepiedrayera/mpiedray/infoRealtor/logs/nightly.out</string>
+</dict>
+</plist>

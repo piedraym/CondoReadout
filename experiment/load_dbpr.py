@@ -5,7 +5,7 @@ so run those two first.
 """
 
 import csv
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from applog import get_logger
@@ -72,7 +72,8 @@ def load():
             cur.execute("DELETE FROM condo_dbpr")
             cur.execute("DELETE FROM dbpr_project")
             cur.executemany(
-                "INSERT INTO dbpr_project VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", projects
+                "INSERT INTO dbpr_project VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                projects,
             )
             cur.executemany("INSERT INTO condo_dbpr VALUES (%s, %s, %s, %s)", matches)
             cur.executemany(
@@ -81,9 +82,15 @@ def load():
                 reports,
             )
         run.rows = len(projects) + len(matches) + len(reports)
+        # the data is as old as the file that DBPR published
+        run.data_date = date.fromtimestamp((DATA / "Condo_MD.csv").stat().st_mtime)
+
         log.info(
             "%s projects, %s matches to condos (%s to review), %s SIRS reports",
-            len(projects), len(matches), sum(m[3] for m in matches), len(reports),
+            len(projects),
+            len(matches),
+            sum(m[3] for m in matches),
+            len(reports),
         )
 
 

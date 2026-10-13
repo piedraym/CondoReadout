@@ -167,19 +167,28 @@ def request_json(method, url, **kwargs):
             if r.status_code < 500:
                 r.raise_for_status()  # a 4xx is our mistake: retrying will not help
                 data = r.json()
-                if "error" in data:
+                code = data["error"].get("code") or 0 if "error" in data else None
+                if code is None:
+                    rows = (
+                        f"{len(data['features'])} rows" if "features" in data else "ok"
+                    )
+                    log.debug(
+                        "%s %s: %s in %.1fs",
+                        method,
+                        layer,
+                        rows,
+                        time.monotonic() - started,
+                    )
+                    return data
+                if (
+                    code < 500
+                ):  # our mistake (a wrong field, a bad query): retrying will not help
                     log.error("%s answered with an error: %s", layer, data["error"])
                     raise RuntimeError(data["error"])
-                rows = f"{len(data['features'])} rows" if "features" in data else "ok"
-                log.debug(
-                    "%s %s: %s in %.1fs",
-                    method,
-                    layer,
-                    rows,
-                    time.monotonic() - started,
-                )
-                return data
-            problem = f"HTTP {r.status_code}"
+                problem = f"ArcGIS error {code}"  # the server's own trouble, sent with HTTP 200
+            else:
+                problem = f"HTTP {r.status_code}"
+
         except (requests.Timeout, requests.ConnectionError) as error:
             problem = type(error).__name__
         if attempt < TRIES:

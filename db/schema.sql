@@ -26,6 +26,7 @@ CREATE TABLE ingest_run (
     started_at        timestamptz NOT NULL DEFAULT now(),
     finished_at       timestamptz,
     row_count         integer,
+    data_date         date NOT NULL DEFAULT current_date,  -- day the data is from: the load day, or the file's date
     status            text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'ok', 'failed')),
     error             text
 );
