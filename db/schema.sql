@@ -2,7 +2,7 @@
 -- the traffic light and the questions are computed in Python when a report is asked for.
 -- Running this file again deletes every table and its data: the loaders fill them back.
 
-DROP TABLE IF EXISTS condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
+DROP TABLE IF EXISTS permit, recert_record, condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
 
 -- One row per municipality. The code is the first two digits of the folio.
 CREATE TABLE jurisdiction (
@@ -86,3 +86,42 @@ CREATE TABLE condo_location (
     checked_at         timestamptz NOT NULL DEFAULT now()
 );
 
+-- Recertification records, all buildings of the jurisdiction (not only condos).
+-- Every jurisdiction fills the same columns from its own source; what does not fit goes in extra.
+-- A record belongs to a condo by its folio (the parent's or a unit's) or by its address.
+CREATE TABLE recert_record (
+    jurisdiction_code text NOT NULL REFERENCES jurisdiction,
+    source_id         text NOT NULL,  -- the record's id in its source (OBJECTID in Miami)
+    folio             text,
+    address           text,           -- as the source writes it
+    match_address     text,           -- in one spelling, to compare with the towers
+    year_built        integer,
+    recert_year       integer,        -- year the recertification is due
+    status            text,           -- 'Completed', 'Pending', 'Exempted', 'Canceled'
+    plan_number       text,
+    plan_status       text,
+    plan_status_date  date,
+    submitted_date    date,
+    updated_date      date,
+    extra             jsonb NOT NULL DEFAULT '{}',
+    PRIMARY KEY (jurisdiction_code, source_id)
+);
+
+CREATE INDEX recert_record_folio ON recert_record (folio);
+CREATE INDEX recert_record_match_address ON recert_record (match_address);
+
+-- Building permits, all properties of the jurisdiction. No project names: they are never requested.
+CREATE TABLE permit (
+    jurisdiction_code text NOT NULL REFERENCES jurisdiction,
+    permit_number     text NOT NULL,
+    folio             text,
+    address           text,
+    permit_type       text,  -- 'MECHANICAL ELEVATORS', 'ROOFING'...
+    scope             text,
+    status            text,  -- 'Final', 'Active', 'Expired', 'Revoked', 'Hold'...
+    issued_date       date,
+    extra             jsonb NOT NULL DEFAULT '{}',
+    PRIMARY KEY (jurisdiction_code, permit_number)
+);
+
+CREATE INDEX permit_folio ON permit (folio);

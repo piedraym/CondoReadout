@@ -4,12 +4,11 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-import psycopg
 import requests
 from applog import get_logger
+from database import connect
 from step0 import coast_distance, flood_zone
 
-DB = "dbname=inforealtor"
 WORKERS = 8  # condos looked up at the same time
 BATCH = 100  # condos saved per commit, so an interrupted run keeps its progress
 
@@ -64,7 +63,7 @@ def look_up(condo):
 def load(code):
     """Look up the condos of the jurisdiction that have no location data, or that moved."""
     started = time.monotonic()
-    with psycopg.connect(DB) as db:
+    with connect() as db:
         pending = db.execute(PENDING, [code]).fetchall()
         if not pending:
             log.info(
