@@ -2,7 +2,7 @@
 -- the traffic light and the questions are computed in Python when a report is asked for.
 -- Running this file again deletes every table and its data: the loaders fill them back.
 
-DROP TABLE IF EXISTS permit, recert_record, condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
+DROP TABLE IF EXISTS sirs_report, condo_dbpr, dbpr_project, permit, recert_record, condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
 
 -- One row per municipality. The code is the first two digits of the folio.
 CREATE TABLE jurisdiction (
@@ -125,3 +125,40 @@ CREATE TABLE permit (
 );
 
 CREATE INDEX permit_folio ON permit (folio);
+
+-- Condominium projects registered with the State (DBPR file Condo_MD.csv), every county in the file.
+-- The managing entity columns of the file are not loaded.
+CREATE TABLE dbpr_project (
+    project_number   text PRIMARY KEY,
+    file_number      text,
+    name             text NOT NULL,
+    county           text,
+    address          text,   -- street, city, state and zip as DBPR writes them
+    units            integer,
+    recorded_date    date,
+    primary_status   text,
+    secondary_status text    -- 'Recorded', 'Delinquent'...
+);
+
+-- Which DBPR projects belong to which condo, found by match_condos.py.
+-- No foreign key to condo, so reloading the condos does not erase the matches.
+CREATE TABLE condo_dbpr (
+    parent_folio   text NOT NULL,
+    project_number text NOT NULL REFERENCES dbpr_project,
+    method         text,              -- 'name', 'address', 'fuzzy name 91'...
+    needs_review   boolean NOT NULL,  -- same name but another city: not used until checked by hand
+    PRIMARY KEY (parent_folio, project_number)
+);
+
+-- SIRS reports filed with DBPR in Miami-Dade, one row per report, matched to a project when possible.
+CREATE TABLE sirs_report (
+    id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    period           text NOT NULL,  -- 'before July 2025' or 'July 2025+'
+    project_name     text,
+    association_name text,
+    zip              text,
+    project_number   text REFERENCES dbpr_project,  -- NULL when no project was found
+    method           text                            -- 'exact' or 'fuzzy'
+);
+
+CREATE INDEX sirs_report_project_number ON sirs_report (project_number);

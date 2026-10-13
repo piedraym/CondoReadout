@@ -80,6 +80,7 @@ reports += [
 ]
 
 sirs = defaultdict(set)  # parent folio -> periods with a report
+matched = []  # one row per report, for the database
 methods = Counter()
 for report in reports:
     names = [n for n in (sirs_name(x) for x in report["names"]) if n]
@@ -100,6 +101,17 @@ for report in reports:
                 project, method = best[0][2], "fuzzy"
                 break
     methods[method or "no project"] += 1
+    matched.append(
+        {
+            "period": report["period"],
+            "project_name": report["names"][0],
+            "association_name": report["names"][1],
+            "zip": report["zip"],
+            "project_number": project,
+            "method": method,
+        }
+    )
+
     if project in parent_of:  # only City condos
         sirs[parent_of[project]].add(report["period"])
 
@@ -116,3 +128,9 @@ with (OUT / "sirs_by_folio.csv").open("w", newline="") as f:
     for parent, periods in sorted(sirs.items()):
         writer.writerow([parent, " + ".join(sorted(periods))])
 print(f"-> {OUT / 'sirs_by_folio.csv'}")
+
+with (OUT / "sirs_reports.csv").open("w", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=matched[0].keys())
+    writer.writeheader()
+    writer.writerows(matched)
+print(f"-> {OUT / 'sirs_reports.csv'}")

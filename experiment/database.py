@@ -25,7 +25,8 @@ def ingest_run(db, source, code):
     Use it as `with ingest_run(db, "recert", code) as run:` and set run.rows inside.
     If the block fails, its changes to the database are undone and the error goes on.
     """
-    if not db.execute("SELECT 1 FROM jurisdiction WHERE code = %s", [code]).fetchone():
+    known = db.execute("SELECT 1 FROM jurisdiction WHERE code = %s", [code]).fetchone()
+    if code is not None and not known:
         log.error("%s is not in the jurisdiction table", code)
         raise SystemExit(1)
     started = time.monotonic()
@@ -35,6 +36,7 @@ def ingest_run(db, source, code):
         [source, code],
     ).fetchone()[0]
     db.commit()  # the run stays recorded even if the load fails
+    code = code or "all"  # only for the messages below
     log.info("%s %s: started (run %s)", source, code, run.id)
     try:
         yield run
@@ -45,7 +47,9 @@ def ingest_run(db, source, code):
             [str(error), run.id],
         )
         db.commit()
-        log.exception("%s %s: failed, nothing was changed (run %s)", source, code, run.id)
+        log.exception(
+            "%s %s: failed, nothing was changed (run %s)", source, code, run.id
+        )
         raise
     db.execute(
         "UPDATE ingest_run SET finished_at = now(), status = 'ok', row_count = %s WHERE id = %s",
@@ -54,5 +58,9 @@ def ingest_run(db, source, code):
     db.commit()
     log.info(
         "%s %s: saved %s rows in %.0fs (run %s)",
-        source, code, run.rows, time.monotonic() - started, run.id,
+        source,
+        code,
+        run.rows,
+        time.monotonic() - started,
+        run.id,
     )
