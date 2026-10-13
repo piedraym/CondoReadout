@@ -12,6 +12,8 @@ numpy==2.5.3
 openpyxl==3.1.5
 pandas==3.0.6
 pillow==12.3.0
+psycopg==3.3.6
+psycopg-binary==3.3.6
 pycparser==3.11
 pydyf==0.12.1
 pyphen==0.18.1

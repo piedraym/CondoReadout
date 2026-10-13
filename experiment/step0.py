@@ -9,6 +9,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
+from applog import get_logger
+
+log = get_logger("arcgis")
 
 # ---------------------------------------------------------------------------
 # 1. Fuentes de datos (servicios ArcGIS públicos)
@@ -156,22 +159,36 @@ RETRY_WAIT = 2  # seconds before the second try, doubled for each later one
 def request_json(method, url, **kwargs):
     """GET or POST an ArcGIS URL and return its JSON, trying again on timeouts and server errors."""
     host = urlparse(url).netloc
+    layer = url.split("/services/")[-1]  # 'PaGISView_gdb/FeatureServer/0/query'
     for attempt in range(1, TRIES + 1):
+        started = time.monotonic()
         try:
             r = requests.request(method, url, timeout=TIMEOUT, **kwargs)
             if r.status_code < 500:
                 r.raise_for_status()  # a 4xx is our mistake: retrying will not help
                 data = r.json()
                 if "error" in data:
+                    log.error("%s answered with an error: %s", layer, data["error"])
                     raise RuntimeError(data["error"])
+                rows = f"{len(data['features'])} rows" if "features" in data else "ok"
+                log.debug(
+                    "%s %s: %s in %.1fs",
+                    method,
+                    layer,
+                    rows,
+                    time.monotonic() - started,
+                )
                 return data
             problem = f"HTTP {r.status_code}"
         except (requests.Timeout, requests.ConnectionError) as error:
             problem = type(error).__name__
         if attempt < TRIES:
             wait = RETRY_WAIT * 2 ** (attempt - 1)
-            print(f" ! {problem} from {host}, trying again in {wait}s", file=sys.stderr)
+            log.warning(
+                "%s from %s (%s), trying again in %ss", problem, host, layer, wait
+            )
             time.sleep(wait)
+    log.error("No answer from %s after %s tries (%s): %s", host, TRIES, problem, layer)
     raise RuntimeError(f"No answer from {host} after {TRIES} tries ({problem})")
 
 
@@ -467,8 +484,12 @@ def building_summary(parent_folio, fields):
     rows = [r for r in all_rows if r["FOLIO"] != parent_folio]
     if not rows:
         return None
+    return summarize_units(parent_folio, master[0] if master else None, rows)
 
-    master_legal = master[0]["LEGAL"] if master else None
+
+def summarize_units(parent_folio, master, rows):
+    """Summary of one condo from its unit rows and its master row (None if the Property Appraiser has none)."""
+    master_legal = master["LEGAL"] if master else None
 
     folios = [r["FOLIO"] for r in rows]
     # Year per tower: the most common year of its units, so one odd unit does not age the building
