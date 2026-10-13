@@ -1,11 +1,13 @@
-"""Render the one-page building report (HTML) from step0.build_report."""
+"""Render the building report (HTML and PDF) from the database, through report_db.build_report."""
 
 import sys
 from datetime import date
 from pathlib import Path
 
+import psycopg
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from step0 import LIGHT_ORDER, THIS_YEAR, build_report, first_recert_age, pretty_name
+from report_db import build_report
+from step0 import LIGHT_ORDER, THIS_YEAR, first_recert_age, pretty_name
 from weasyprint import HTML
 
 HERE = Path(__file__).parent
@@ -331,10 +333,10 @@ if __name__ == "__main__":
     folio = sys.argv[1] if len(sys.argv) > 1 else "0132310480001"  # The Grand
     try:
         building = build_report(folio)
-    except RuntimeError as error:
-        raise SystemExit(f"Could not build the report: {error}")
+    except psycopg.Error as error:
+        raise SystemExit(f"Could not read the database: {error}")
     if not building:
-        raise SystemExit("Sin resultados para ese folio")
+        raise SystemExit(f"{folio} is not in the database")
     OUT.mkdir(exist_ok=True)
     html = render_html(building)
     (OUT / f"report_{folio}.html").write_text(

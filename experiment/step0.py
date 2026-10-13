@@ -465,6 +465,11 @@ def estimate_floors(units):
     return top if len(floors) >= enough else None
 
 
+def by_count(counts):
+    """Items of a Counter, the most common first; on a tie, in alphabetical order."""
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+
+
 def common_year(years):
     """Most common year in a Counter of years; the older one on a tie."""
     return max(years, key=lambda year: (years[year], -year))
@@ -510,14 +515,12 @@ def summarize_units(parent_folio, master, rows):
         "parent_folio": parent_folio,
         "master_in_pa": bool(master),
         "master_legal": master_legal,
-        "towers": dict(towers.most_common()),
+        "towers": dict(by_count(towers)),
         "zip": (rows[0]["TRUE_SITE_ZIP_CODE"] or "")[:5],
         "condo_name": m.group(1) if m else None,
         "name": pretty_name(m.group(1) if m else None),
         "units": len(rows),
-        "unit_types": dict(
-            Counter(unit_type(r["DOR_DESC"]) for r in rows).most_common()
-        ),
+        "unit_types": dict(by_count(Counter(unit_type(r["DOR_DESC"]) for r in rows))),
         "estimate_floors": estimate_floors(
             r["TRUE_SITE_UNIT"] for r in rows if not is_street_number(r)
         ),
@@ -602,8 +605,10 @@ def permit_summary(building, fields):
         p["PermitIssuedDate"] = ms_to_date(p["PermitIssuedDate"])
         permits[p["PermitNumber"]] = p  # the layer has exact duplicate rows
     permits = sorted(
-        permits.values(), key=lambda p: p["PermitIssuedDate"] or "", reverse=True
-    )
+        permits.values(),
+        key=lambda p: (p["PermitIssuedDate"] or "", p["PermitNumber"]),
+        reverse=True,
+    )  # newest first; the number settles ties
     year_ago = (date.today() - timedelta(days=365)).isoformat()
     return {
         "total": len(permits),
