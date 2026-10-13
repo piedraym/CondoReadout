@@ -2,7 +2,7 @@
 -- the traffic light and the questions are computed in Python when a report is asked for.
 -- Running this file again deletes every table and its data: the loaders fill them back.
 
-DROP TABLE IF EXISTS unit, tower, condo, ingest_run, jurisdiction CASCADE;
+DROP TABLE IF EXISTS condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
 
 -- One row per municipality. The code is the first two digits of the folio.
 CREATE TABLE jurisdiction (
@@ -70,3 +70,19 @@ CREATE TABLE unit (
 );
 
 CREATE INDEX unit_parent_folio ON unit (parent_folio);
+
+
+-- Flood zone and distance to the coast of each condo, looked up once at its location.
+-- It is a separate table with no foreign key, so reloading the condos does not erase it:
+-- these lookups are slow and the answers rarely change.
+CREATE TABLE condo_location (
+    parent_folio       text PRIMARY KEY,
+    lon                double precision NOT NULL,  -- the point the lookups were made at
+    lat                double precision NOT NULL,
+    flood_zone         text,     -- FEMA zone: 'AE', 'X'...; NULL when the point is in no zone
+    flood_subtype      text,
+    flood_bfe          numeric,  -- base flood elevation in feet, only in some zones
+    coast_within_miles numeric,  -- smallest of 0.25, 0.5, 1, 2, 3 with shoreline; NULL = farther than 3
+    checked_at         timestamptz NOT NULL DEFAULT now()
+);
+
