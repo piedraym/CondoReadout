@@ -1,6 +1,6 @@
 """Web API: search condos and get their report as HTML or PDF.
 
-Run it from experiment/ with:  ../.venv/bin/uvicorn api:app --reload
+Run it from backend/ with:  ../.venv/bin/uvicorn api:app --reload
 and open http://127.0.0.1:8000/docs to try every endpoint in the browser.
 """
 

@@ -7,10 +7,10 @@
     <key>ProgramArguments</key>
     <array>
         <string>/Users/maitepiedrayera/mpiedray/infoRealtor/.venv/bin/python</string>
-        <string>/Users/maitepiedrayera/mpiedray/infoRealtor/experiment/nightly.py</string>
+        <string>/Users/maitepiedrayera/mpiedray/infoRealtor/backend/nightly.py</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/maitepiedrayera/mpiedray/infoRealtor/experiment</string>
+    <string>/Users/maitepiedrayera/mpiedray/infoRealtor/backend</string>
     <!-- every day at 2:00; if the Mac was asleep, it runs when it wakes up -->
     <key>StartCalendarInterval</key>
     <dict>

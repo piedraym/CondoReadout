@@ -1,4 +1,4 @@
-/* Same palette as the PDF report (experiment/templates/report.html) */
+/* Same palette as the PDF report (backend/templates/report.html) */
 :root {
   --page: #f7f5f1;
   --card: #fff;
