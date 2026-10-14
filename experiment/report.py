@@ -7,7 +7,14 @@ from pathlib import Path
 import psycopg
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from report_db import build_report
-from step0 import LIGHT_ORDER, THIS_YEAR, first_recert_age, pretty_name
+from step0 import (
+    FULL_REVIEW_MIN_UNITS,
+    LIGHT_ORDER,
+    THIS_YEAR,
+    financing_check,
+    first_recert_age,
+    pretty_name,
+)
 from weasyprint import HTML
 
 HERE = Path(__file__).parent
@@ -267,6 +274,58 @@ def result_text(tower):
     return RECERT_TEXT[tower["label"]][2]
 
 
+def financing_text(building):
+    """Box about mortgage financing: whether the lender's Full Review applies and the warning signs."""
+    check = financing_check(building)
+    units = building["units"]
+    signals = []
+    if building["unbuilt"]:
+        title = "Not built yet."
+        text = "Lenders review new projects with their own rules: ask the lender which review applies."
+    elif not check["full_review"]:
+        title = "Project review may be waived."
+        text = (
+            f"With {units} units ({FULL_REVIEW_MIN_UNITS - 1} or fewer), "
+            "lenders can waive the review of the association."
+        )
+    else:
+        title = "Full Review required."
+        text = (
+            f"With {units} units (more than {FULL_REVIEW_MIN_UNITS - 1}), every conventional loan in this "
+            "building needs the lender's Full Review of the association (questionnaire 1076 / 476)."
+        )
+        if check["recert_label"]:
+            signals.append(
+                RECERT_TEXT[check["recert_label"]][2]
+                + " The review asks about structural inspections and repairs."
+            )
+        if check["no_sirs"]:
+            signals.append(
+                "No reserve study (SIRS) in the DBPR registry. The review checks the reserves."
+            )
+        if check["not_closed"]:
+            permits = "permit" if check["not_closed"] == 1 else "permits"
+            signals.append(
+                f"{check['not_closed']} building {permits} expired, revoked or on hold."
+            )
+        if check["flood_zone"]:
+            signals.append(
+                f"High-risk flood zone ({check['flood_zone']}). The review checks the flood insurance."
+            )
+        if check["commercial"]:
+            share = round(100 * check["commercial"] / units)
+            signals.append(
+                f"{check['commercial']} of {units} units are commercial ({share}%). "
+                "Lenders limit commercial space, measured by floor area."
+            )
+    return {
+        "title": title,
+        "text": text,
+        "full_review": check["full_review"] and not building["unbuilt"],
+        "signals": signals,
+    }
+
+
 def long_date(day):
     """'2026-10-13' or a date -> 'October 13, 2026'."""
     if isinstance(day, str):
@@ -327,6 +386,7 @@ def report_context(building):
         "result_title": RESULT_TITLES[building["recert_light"]],
         "result_text": result_text(worst),
         "compliance": compliance_rows(building),
+        "financing": financing_text(building),
         "permits_total": permits["total"],
         "permits_recent": [
             permit_line(p) for p in permits["last_12_months"][:MAX_PERMITS]

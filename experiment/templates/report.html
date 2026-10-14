@@ -51,6 +51,8 @@
   .card strong { display: block; margin-bottom: 4px; font-size: 13px; }
   .card p { margin: 2px 0; }
   .card.wide { flex: 1.7; }
+  .financing ul { margin: 4px 0; padding-left: 18px; }
+  .financing .fine { font-size: 11px; color: #3d4350; }
   .permit { display: flex; gap: 10px; }
   .permit .when { width: 62px; color: #4a4f5a; }
   .permit .what { flex: 1; }
@@ -106,6 +108,20 @@
       </tr>
       {% endfor %}
     </table>
+
+    <h2>Mortgage financing (Fannie Mae / Freddie Mac)</h2>
+    <div class="card financing">
+      <p><strong>{{ financing.title }}</strong> {{ financing.text }}</p>
+      {% if financing.signals %}
+      <p>Warning signs in the public records:</p>
+      <ul>{% for signal in financing.signals %}<li>{{ signal }}</li>{% endfor %}</ul>
+      {% elif financing.full_review %}
+      <p>No warning signs in the public records we check.</p>
+      {% endif %}
+      <p class="fine">Only the lender decides whether a loan is possible. Dues delinquency, litigation, special assessments and Fannie Mae's list of ineligible buildings are not public: they come from the association's questionnaire.</p>
+    </div>
+
+
 
     <h2>Also check</h2>
     <div class="cards">

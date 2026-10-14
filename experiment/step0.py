@@ -302,6 +302,20 @@ FIRST_RECERT_AGE = 30
 FIRST_RECERT_AGE_COASTAL = 25  # 3+ floors within 3 miles of the coast
 RECERT_EVERY = 10
 
+
+# Fannie Mae / Freddie Mac condo project review (Lender Letter LL-2026-03): from August 3, 2026
+# every loan in a project of more than 10 units needs a Full Review (questionnaire 1076 / 476).
+FULL_REVIEW_MIN_UNITS = 11
+RESERVE_MIN_PERCENT = (
+    15  # of the budget, for loan applications from January 4, 2027 (10 before)
+)
+COMMERCIAL_TYPES = {
+    "office",
+    "retail",
+    "hotel",
+    "other commercial",
+}  # kinds from unit_type()
+
 LIGHTS = {
     "Completed": "green",
     "Exempted": "green",
@@ -752,6 +766,29 @@ def dbpr_info(building):
     }
 
 
+def financing_check(building):
+    """Facts from the public data that the lender's Full Review also looks at (None when there is nothing to report)."""
+    worst = max(
+        building["recert_by_tower"].values(),
+        key=lambda t: LIGHT_ORDER.index(t["light"]),
+    )
+    floors = building["estimate_floors"]
+    zone = (building["flood"] or {}).get("zone") or ""
+    return {
+        "full_review": building["units"] >= FULL_REVIEW_MIN_UNITS,
+        "recert_label": worst["label"] if worst["light"] != "green" else None,
+        "no_sirs": (floors is None or floors >= 3)
+        and not building["dbpr"]["sirs_reported"],
+        "not_closed": len(building["permits"]["not_closed"]),
+        "flood_zone": zone
+        if zone.startswith(("A", "V"))
+        else None,  # high-risk FEMA zones
+        "commercial": sum(
+            n for kind, n in building["unit_types"].items() if kind in COMMERCIAL_TYPES
+        ),
+    }
+
+
 def association_questions(building):
     """Questions for the buyer to ask the association, based on what the data shows or lacks."""
     questions = [
@@ -824,6 +861,22 @@ def association_questions(building):
         questions.append(
             "Request the building's Elevation Certificate and the cost of the master flood insurance policy."
         )
+
+    if financing_check(building)["full_review"] and not building["unbuilt"]:
+        questions += [
+            (
+                "Request the completed condo questionnaire for lenders (Fannie Mae 1076 / Freddie Mac 476) "
+                "before making an offer: every conventional loan in this building needs it."
+            ),
+            (
+                f"What share of the annual budget goes to reserves (lenders require at least {RESERVE_MIN_PERCENT}% "
+                "from January 2027), and when was the last reserve study done?"
+            ),
+            (
+                "Are critical repairs pending, and what do they cost per unit? How many owners are more than "
+                "60 days behind on dues, and is the association in any litigation?"
+            ),
+        ]
     return questions
 
 
