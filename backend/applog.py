@@ -21,7 +21,7 @@ def get_logger(name):
         to_file.setFormatter(
             logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
         )
-        to_screen = logging.StreamHandler()  # stderr: it does not mix with the JSON that step0 prints
+        to_screen = logging.StreamHandler()  # stderr: it does not mix with the JSON that core prints
         to_screen.setLevel(logging.INFO)
         to_screen.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
         root.setLevel(logging.DEBUG)

@@ -5,7 +5,7 @@ import sys
 from applog import get_logger
 from database import connect, ingest_run
 from psycopg.types.json import Jsonb
-from step0 import LAYERS, RECERT_FIELDS, ms_to_date, norm_address, query
+from core import LAYERS, RECERT_FIELDS, ms_to_date, norm_address, query
 
 log = get_logger("load_recert")
 

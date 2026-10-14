@@ -1,13 +1,13 @@
 """Everything the report needs for one condo, read from PostgreSQL instead of the live layers.
 
-build_report returns the same dictionary as step0.build_report, so report.py and the
-template work with either. The rules (labels, lights, due dates, questions) stay in step0.
+build_report returns the same dictionary as core.build_report, so report.py and the
+template work with either. The rules (labels, lights, due dates, questions) stay in core.
 """
 
 from datetime import date, datetime, time, timedelta
 
 from database import connect
-from step0 import (
+from core import (
     BAD_PERMIT_STATUSES,
     IN_PROGRESS_STATUSES,
     add_next_due,
@@ -28,12 +28,12 @@ def plain(number):
 
 
 def to_ms(day):
-    """A date as ArcGIS milliseconds (step0.recert_label measures the days from them)."""
+    """A date as ArcGIS milliseconds (core.recert_label measures the days from them)."""
     return datetime.combine(day, time()).timestamp() * 1000 if day else None
 
 
 def summary(db, parent_folio):
-    """The condo as step0.building_summary returns it, or None if it is not in the database."""
+    """The condo as core.building_summary returns it, or None if it is not in the database."""
     condo = db.execute(
         "SELECT legal_name, name, zip, units, unit_types, estimate_floors, year_built,"
         " unbuilt, master_in_pa FROM condo WHERE parent_folio = %s",
@@ -67,7 +67,7 @@ def summary(db, parent_folio):
 
 
 def recert_records(db, building):
-    """Recertification records of the building, by folio or by tower address (as step0.recert_records)."""
+    """Recertification records of the building, by folio or by tower address (as core.recert_records)."""
     all_folios = [building["parent_folio"]] + building["folios"]
     addresses = [norm_address(tower) for tower in building["towers"] if tower]
     rows = db.execute(
@@ -105,7 +105,7 @@ def recert_records(db, building):
 
 
 def permit_summary(db, building):
-    """Building-level permits: total, last 12 months, in progress and not closed (as step0.permit_summary)."""
+    """Building-level permits: total, last 12 months, in progress and not closed (as core.permit_summary)."""
     rows = db.execute(
         "SELECT permit_number, status, permit_type, scope, issued_date FROM permit"
         " WHERE jurisdiction_code = %s AND folio = %s"
@@ -132,7 +132,7 @@ def permit_summary(db, building):
 
 
 def location(db, building):
-    """Flood zone and coast distance as step0.flood_zone and step0.coast_distance return them."""
+    """Flood zone and coast distance as core.flood_zone and core.coast_distance return them."""
     row = db.execute(
         "SELECT flood_zone, flood_subtype, flood_bfe, coast_within_miles FROM condo_location"
         " WHERE parent_folio = %s",
@@ -151,7 +151,7 @@ def location(db, building):
 
 
 def dbpr_info(db, building):
-    """DBPR projects, Delinquent status and SIRS reports (as step0.dbpr_info)."""
+    """DBPR projects, Delinquent status and SIRS reports (as core.dbpr_info)."""
     projects = [
         {"number": number, "name": name, "status": status or ""}
         for number, name, status in db.execute(

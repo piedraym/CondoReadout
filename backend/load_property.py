@@ -7,7 +7,7 @@ from applog import get_logger
 from database import connect, ingest_run
 from psycopg.types.json import Jsonb
 from search_db import entries
-from step0 import (
+from core import (
     LAYERS,
     PROPERTY_FIELDS,
     base_address,

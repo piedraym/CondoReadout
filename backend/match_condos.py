@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from rapidfuzz import fuzz, process
-from step0 import FUZZY_MIN, LAYERS, base_address, fuzzy_name, match_name, query
+from core import FUZZY_MIN, LAYERS, base_address, fuzzy_name, match_name, query
 
 DATA = Path(__file__).parent / "data"
 OUT = Path(__file__).parent / "out"

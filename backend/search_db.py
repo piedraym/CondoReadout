@@ -9,7 +9,7 @@ import re
 import sys
 
 from database import connect
-from step0 import pretty_name
+from core import pretty_name
 
 MAX_RESULTS = 8
 

@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 from applog import get_logger
 from database import connect
-from step0 import coast_distance, flood_zone
+from core import coast_distance, flood_zone
 
 WORKERS = 8  # condos looked up at the same time
 BATCH = 100  # condos saved per commit, so an interrupted run keeps its progress

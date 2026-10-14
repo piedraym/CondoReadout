@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
+backend/out/
+backend/data/
 experiment/out/
-experiment/data/
 .DS_Store
 logs/

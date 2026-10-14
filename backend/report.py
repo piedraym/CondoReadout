@@ -7,7 +7,7 @@ from pathlib import Path
 import psycopg
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from report_db import build_report
-from step0 import (
+from core import (
     FULL_REVIEW_MIN_UNITS,
     LIGHT_ORDER,
     THIS_YEAR,

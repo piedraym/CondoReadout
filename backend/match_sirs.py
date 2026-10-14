@@ -10,7 +10,7 @@ from pathlib import Path
 
 import openpyxl
 from rapidfuzz import fuzz, process
-from step0 import FUZZY_MIN, fuzzy_name
+from core import FUZZY_MIN, fuzzy_name
 
 DATA = Path(__file__).parent / "data"
 OUT = Path(__file__).parent / "out"
