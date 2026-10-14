@@ -1,0 +1,26 @@
+/* Same palette as the PDF report (experiment/templates/report.html) */
+:root {
+  --page: #f7f5f1;
+  --card: #fff;
+  --line: #d9d5cc;
+  --text: #1f2430;
+  --muted: #6b6f78;
+  --accent: #1f4e79;
+  --active: #eef3f8;
+  --unbuilt-bg: #e1f0dd;
+  --unbuilt: #2d5f2a;
+
+  font: 16px/1.45 Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: var(--page);
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: normal;
+}

@@ -1,0 +1,122 @@
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+header p {
+  margin: 4px 0 24px;
+  color: var(--muted);
+}
+
+/* Search box and its suggestions */
+.search {
+  position: relative;
+}
+
+.search input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 18px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+}
+
+.search input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.results li {
+  padding: 10px 16px;
+  cursor: pointer;
+  border-top: 1px solid #f0ede7;
+}
+
+.results li:first-child {
+  border-top: none;
+}
+
+.results li.active,
+.results li:hover {
+  background: var(--active);
+}
+
+.results li.empty {
+  color: var(--muted);
+  cursor: default;
+}
+
+.results .address {
+  font-weight: bold;
+}
+
+.results .details {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.unbuilt {
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--unbuilt);
+  background: var(--unbuilt-bg);
+  border-radius: 4px;
+}
+
+/* Report */
+.report-bar {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.report-bar button,
+.report-bar .pdf {
+  padding: 8px 14px;
+  font: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.report-bar button {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+}
+
+.report-bar .pdf {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.report iframe {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--page);
+}
