@@ -6,6 +6,7 @@ from collections import defaultdict
 from applog import get_logger
 from database import connect, ingest_run
 from psycopg.types.json import Jsonb
+from search_db import entries
 from step0 import (
     LAYERS,
     PROPERTY_FIELDS,
@@ -37,7 +38,10 @@ def fetch(code):
     for start in range(0, len(parents), CHUNK):
         folios = ",".join(f"'{p}'" for p in parents[start : start + CHUNK])
         for f in query(
-            LAYERS["property"], f"FOLIO IN ({folios})", ["FOLIO", "LEGAL"], geometry=True
+            LAYERS["property"],
+            f"FOLIO IN ({folios})",
+            ["FOLIO", "LEGAL"],
+            geometry=True,
         ):
             masters[f["attributes"]["FOLIO"]] = f
     return units, masters
@@ -47,8 +51,13 @@ def load(code):
     """Replace the condos, towers and units of the jurisdiction with what the layer has now."""
     with connect() as db, ingest_run(db, "property", code) as run:
         units, masters = fetch(code)
-        log.info("%s: downloaded %s condos, %s with a master folio", code, len(units), len(masters))
-        condos, towers, unit_rows = [], [], []
+        log.info(
+            "%s: downloaded %s condos, %s with a master folio",
+            code,
+            len(units),
+            len(masters),
+        )
+        condos, towers, unit_rows, search_rows = [], [], [], []
         for parent, features in units.items():
             rows = [f["attributes"] for f in features]
             master = masters.get(parent)
@@ -74,12 +83,14 @@ def load(code):
             )
             for address, count in b["towers"].items():
                 towers.append((parent, address, count, b["tower_years"].get(address)))
+            search_rows += entries(parent, b, b["towers"])
             for r in rows:
                 unit_rows.append(
                     (
                         r["FOLIO"],
                         parent,
-                        base_address(r),
+                        # NULL when it is not one of the towers (a vacant lot with no address)
+                        base_address(r) if base_address(r) in b["towers"] else None,
                         (r["TRUE_SITE_UNIT"] or "").strip() or None,
                         r["DOR_DESC"],
                         unit_type(r["DOR_DESC"]),
@@ -97,10 +108,22 @@ def load(code):
                 condos,
             )
             cur.executemany("INSERT INTO tower VALUES (%s, %s, %s, %s)", towers)
-            cur.executemany("INSERT INTO unit VALUES (%s, %s, %s, %s, %s, %s, %s)", unit_rows)
+            cur.executemany(
+                "INSERT INTO unit VALUES (%s, %s, %s, %s, %s, %s, %s)", unit_rows
+            )
+            cur.executemany(
+                "INSERT INTO search_entry VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                search_rows,
+            )
             cur.execute("UPDATE jurisdiction SET active = true WHERE code = %s", [code])
         run.rows = len(unit_rows)
-        log.info("%s: %s condos, %s towers, %s units", code, len(condos), len(towers), len(unit_rows))
+        log.info(
+            "%s: %s condos, %s towers, %s units",
+            code,
+            len(condos),
+            len(towers),
+            len(unit_rows),
+        )
 
 
 if __name__ == "__main__":

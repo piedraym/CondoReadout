@@ -513,12 +513,16 @@ def summarize_units(parent_folio, master, rows):
             years_by_tower[base_address(r)][r["YEAR_BUILT"]] += 1
     tower_years = {tower: common_year(years) for tower, years in years_by_tower.items()}
 
-    # Condominium Name
-    condo_legal_name = rows[0]["LEGAL"] or ""
-    m = re.match(r"^(.*?)\s+UNIT\b", condo_legal_name)
+    # Condominium name: from the first unit whose legal description reads "<NAME> UNIT ..."
+    m = next(
+        (m for r in rows if (m := re.match(r"^(.*?)\s+UNIT\b", r["LEGAL"] or ""))), None
+    )
 
     # Towers: one parent folio can cover several buildings (one address each)
+    # Units without an address (vacant lots, mostly) only make a tower when no unit has one.
     towers = Counter(base_address(r) for r in rows)
+    if len(towers) > 1:
+        towers.pop("", None)
 
     return {
         "parent_folio": parent_folio,

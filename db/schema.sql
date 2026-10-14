@@ -2,7 +2,7 @@
 -- the traffic light and the questions are computed in Python when a report is asked for.
 -- Running this file again deletes every table and its data: the loaders fill them back.
 
-DROP TABLE IF EXISTS sirs_report, condo_dbpr, dbpr_project, permit, recert_record, condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
+DROP TABLE IF EXISTS search_entry, sirs_report, condo_dbpr, dbpr_project, permit, recert_record, condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
 
 -- One row per municipality. The code is the first two digits of the folio.
 CREATE TABLE jurisdiction (
@@ -62,11 +62,12 @@ CREATE TABLE tower (
 CREATE TABLE unit (
     folio         text PRIMARY KEY CHECK (folio ~ '^[0-9]{13}$'),
     parent_folio  text NOT NULL,
-    tower_address text NOT NULL,
+    tower_address text,           -- NULL: no address, in a condo whose other units have one
     unit_number   text,
     dor_desc      text,           -- land use from the Property Appraiser
     unit_type     text NOT NULL,  -- 'residential', 'office', 'retail'...
     year_built    integer,
+    FOREIGN KEY (parent_folio) REFERENCES condo ON DELETE CASCADE,  -- also units with no tower
     FOREIGN KEY (parent_folio, tower_address) REFERENCES tower ON DELETE CASCADE
 );
 
@@ -163,3 +164,18 @@ CREATE TABLE sirs_report (
 );
 
 CREATE INDEX sirs_report_project_number ON sirs_report (project_number);
+
+
+-- The search box: one row per address of each condo (by name only when it has no address).
+-- Filled by load_property.py with the same words the search uses (see search_db.py).
+CREATE TABLE search_entry (
+    parent_folio text NOT NULL REFERENCES condo ON DELETE CASCADE,
+    address      text NOT NULL,  -- as shown: '1717 N Bayshore Dr'
+    name         text,           -- as shown: 'The Grand'
+    zip          text,
+    units        integer NOT NULL,
+    unbuilt      boolean NOT NULL,  -- every unit still vacant: shown as "Not built yet"
+    words        text NOT NULL,  -- ' 1717 n bayshore dr the grand ': address and name, one spelling
+    name_words   text NOT NULL   -- ' the grand '
+);
+
