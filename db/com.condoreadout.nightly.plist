@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.inforealtor.nightly</string>
+    <string>com.condoreadout.nightly</string>
     <key>ProgramArguments</key>
     <array>
         <string>/Users/maitepiedrayera/mpiedray/infoRealtor/.venv/bin/python</string>
@@ -19,7 +19,7 @@
         <key>Minute</key>
         <integer>0</integer>
     </dict>
-    <!-- what the script prints; the detail is in logs/inforealtor.log -->
+    <!-- what the script prints; the detail is in logs/condoreadout.log -->
     <key>StandardOutPath</key>
     <string>/Users/maitepiedrayera/mpiedray/infoRealtor/logs/nightly.out</string>
     <key>StandardErrorPath</key>

@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import psycopg
 from applog import get_logger
 
-# another database can be chosen without touching the code: INFOREALTOR_DB="dbname=other"
-DB = os.environ.get("INFOREALTOR_DB", "dbname=inforealtor")
+# another database can be chosen without touching the code: CONDOREADOUT_DB="dbname=other"
+DB = os.environ.get("CONDOREADOUT_DB", "dbname=condoreadout")
 
 log = get_logger("database")
 

@@ -1,18 +1,18 @@
-"""One log for the whole project: short messages on the screen, every detail in logs/inforealtor.log."""
+"""One log for the whole project: short messages on the screen, every detail in logs/condoreadout.log."""
 
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 LOG_DIR = Path(__file__).parent.parent / "logs"
-LOG_FILE = LOG_DIR / "inforealtor.log"
+LOG_FILE = LOG_DIR / "condoreadout.log"
 MAX_BYTES = 5_000_000  # start a new file at 5 MB
-OLD_FILES = 5  # keep inforealtor.log.1 ... .5
+OLD_FILES = 5  # keep condoreadout.log.1 ... .5
 
 
 def get_logger(name):
-    """Logger called 'inforealtor.<name>'. The screen gets INFO and above; the file also gets DEBUG."""
-    root = logging.getLogger("inforealtor")
+    """Logger called 'condoreadout.<name>'. The screen gets INFO and above; the file also gets DEBUG."""
+    root = logging.getLogger("condoreadout")
     if not root.handlers:  # set up once, however many modules ask
         LOG_DIR.mkdir(exist_ok=True)
         to_file = RotatingFileHandler(

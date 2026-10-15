@@ -1,7 +1,7 @@
 """Refresh every source, one after another. Meant to run every night; see db/nightly.plist.
 
 A step that fails does not stop the others: the report keeps the data of that source from
-the last good night, and the failure stays in ingest_run and in logs/inforealtor.log.
+the last good night, and the failure stays in ingest_run and in logs/condoreadout.log.
 """
 
 import os
