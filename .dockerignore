@@ -1,0 +1,9 @@
+.git
+.venv
+logs
+experiment
+**/__pycache__
+**/node_modules
+frontend/dist
+backend/out
+backend/data/Condo_MD.csv

@@ -2,15 +2,23 @@
 
 Run it from backend/ with:  ../.venv/bin/uvicorn api:app --reload
 and open http://127.0.0.1:8000/docs to try every endpoint in the browser.
+
+On the server it also serves the web pages (frontend/dist) and asks for the shared password
+in APP_PASSWORD; with no APP_PASSWORD (on your Mac) it asks for none.
 """
 
+import base64
+import os
 import re
+import secrets
 import time
+from pathlib import Path
 
 from applog import get_logger
 from database import connect
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 from report import HERE, render_html
 from report_db import build_report
 from search_db import MAX_RESULTS, search
@@ -18,10 +26,41 @@ from weasyprint import HTML
 
 log = get_logger("api")
 
+PASSWORD = os.environ.get("APP_PASSWORD")  # None: no password, as on your Mac
+OPEN_PATHS = {"/health"}  # the server's health check calls it without a password
+FRONTEND = (
+    Path(__file__).parent.parent / "frontend" / "dist"
+)  # built by `npm run build`
+
+
 app = FastAPI(
     title="CondoReadout",
     description="Recertification and risk report for condos in the City of Miami.",
 )
+
+
+def password_ok(header):
+    """True when the request carries the shared password (any user name is accepted)."""
+    if not header or not header.startswith("Basic "):
+        return False
+    try:
+        _, _, given = base64.b64decode(header[6:]).decode().partition(":")
+    except ValueError:  # not valid base64 or not text
+        return False
+    return secrets.compare_digest(given.encode(), PASSWORD.encode())
+
+
+@app.middleware("http")
+async def require_password(request, call_next):
+    """Ask for the shared password with the browser's own login box, unless APP_PASSWORD is unset."""
+    if PASSWORD and request.url.path not in OPEN_PATHS:
+        if not password_ok(request.headers.get("authorization")):
+            return Response(
+                "Password required",
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="CondoReadout"'},
+            )
+    return await call_next(request)
 
 
 def clean_folio(folio):
@@ -87,3 +126,9 @@ def report_pdf(folio: str):
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="report_{folio}.pdf"'},
     )
+
+
+# The web pages, at the end so that the routes above come first. While developing, Vite serves
+# them instead (npm run dev), so this only happens after `npm run build`.
+if FRONTEND.exists():
+    app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
