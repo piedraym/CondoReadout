@@ -23,7 +23,7 @@ export default function App() {
   return (
     <main>
       <header>
-        <h1>infoRealtor</h1>
+        <h1>CondoReadout</h1>
         <p>Recertification and risk report for condos in the City of Miami.</p>
       </header>
       {folio ? (

@@ -1,4 +1,4 @@
--- infoRealtor database. It stores facts from the public sources;
+-- CondoReadout database. It stores facts from the public sources;
 -- the traffic light and the questions are computed in Python when a report is asked for.
 -- Running this file again deletes every table and its data: the loaders fill them back.
 

@@ -19,7 +19,7 @@ from weasyprint import HTML
 log = get_logger("api")
 
 app = FastAPI(
-    title="infoRealtor",
+    title="CondoReadout",
     description="Recertification and risk report for condos in the City of Miami.",
 )
 

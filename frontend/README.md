@@ -1,6 +1,6 @@
 # frontend
 
-The infoRealtor web pages: the search box and the report view (React + Vite).
+The CondoReadout web pages: the search box and the report view (React + Vite).
 
     npm install
     npm run dev

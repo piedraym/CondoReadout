@@ -1,4 +1,4 @@
-# infoRealtor
+# CondoReadout
 
 Recertification and risk report for condos in the City of Miami, built from public records.
 
@@ -11,4 +11,4 @@ Recertification and risk report for condos in the City of Miami, built from publ
 
 Run the API from `backend/` with `../.venv/bin/uvicorn api:app --reload`, and the web pages from
 `frontend/` with `npm run dev`. Installation, data sources and decisions are in the
-[wiki](https://github.com/piedraym/infoRealtor/wiki).
+[wiki](https://github.com/piedraym/CondoReadout/wiki).
