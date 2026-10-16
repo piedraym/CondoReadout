@@ -137,6 +137,9 @@
       <div class="card">
         <strong>Code violations: not public</strong>
         <p>The City of Miami does not publish code compliance or unsafe structure cases. Ask for an estoppel letter.</p>
+        {% if lien_search %}
+          <p>{{ lien_search.who }} sells an official lien and violation search for this property ({{ lien_search.fee }}, with folio {{ folio }}): <a href="{{ lien_search.url }}" target="_blank" rel="noopener">{{ lien_search.link_text }}</a>.</p>
+        {% endif %}
       </div>
     </div>
 

@@ -5,8 +5,6 @@ from datetime import date
 from pathlib import Path
 
 import psycopg
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-from report_db import build_report
 from core import (
     FULL_REVIEW_MIN_UNITS,
     LIGHT_ORDER,
@@ -15,6 +13,8 @@ from core import (
     first_recert_age,
     pretty_name,
 )
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from report_db import build_report
 from weasyprint import HTML
 
 HERE = Path(__file__).parent
@@ -43,6 +43,16 @@ SINGLE_TYPE = {  # condos where every unit is of the same kind
     "parking": "Parking condo",
     "other commercial": "Commercial condo",
     "not built": "Not built yet",
+}
+
+# Official paid search of code violations and liens on one property, by jurisdiction (folio prefix)
+LIEN_SEARCH = {
+    "01": {
+        "who": "The City of Miami",
+        "fee": "$200",
+        "url": "https://www.miami.gov/Services/Building-Permitting/Run-a-Lien-or-Violation-Search",
+        "link_text": "miami.gov: Run a Lien or Violation Search",
+    },
 }
 
 
@@ -387,6 +397,7 @@ def report_context(building):
         "result_text": result_text(worst),
         "compliance": compliance_rows(building),
         "financing": financing_text(building),
+        "lien_search": LIEN_SEARCH.get(building["parent_folio"][:2]),
         "permits_total": permits["total"],
         "permits_recent": [
             permit_line(p) for p in permits["last_12_months"][:MAX_PERMITS]
