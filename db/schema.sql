@@ -2,7 +2,7 @@
 -- the traffic light and the questions are computed in Python when a report is asked for.
 -- Running this file again deletes every table and its data: the loaders fill them back.
 
-DROP TABLE IF EXISTS search_entry, sirs_report, condo_dbpr, dbpr_project, permit, recert_record, condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
+DROP TABLE IF EXISTS violation, search_entry, sirs_report, condo_dbpr, dbpr_project, permit, recert_record, condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
 
 -- One row per municipality. The code is the first two digits of the folio.
 CREATE TABLE jurisdiction (
@@ -178,4 +178,25 @@ CREATE TABLE search_entry (
     words        text NOT NULL,  -- ' 1717 n bayshore dr the grand ': address and name, one spelling
     name_words   text NOT NULL   -- ' the grand '
 );
+
+
+-- Code and building violation cases, all properties of the jurisdiction (not only condos).
+-- One row per case and problem: a code case can list several problems.
+-- The violator's name is never requested.
+CREATE TABLE violation (
+    jurisdiction_code text NOT NULL REFERENCES jurisdiction,
+    source            text NOT NULL,  -- 'building' (building code) or 'code' (code compliance)
+    case_number       text NOT NULL,
+    case_type         text NOT NULL,  -- 'Unsafe Structure', 'Expired Permit'... or the code problem
+    folio             text,
+    address           text,
+    status            text,           -- 'Open', 'Closed', 'Lien'...
+    opened_date       date,
+    closed_date       date,
+    permit_number     text,           -- the expired permit, in 'Expired Permit' cases
+    extra             jsonb NOT NULL DEFAULT '{}',
+    PRIMARY KEY (jurisdiction_code, source, case_number, case_type)
+);
+
+CREATE INDEX violation_folio ON violation (folio);
 
