@@ -274,10 +274,11 @@ def point_query(url, x, y, fields, distance=None):
 THIS_YEAR = date.today().year
 
 # When records share the latest year, the best status wins
-PRIORITY = {"Completed": 3, "Exempted": 2, "Pending": 1, "Canceled": 0}
+PRIORITY = {"Completed": 3, "Exempted": 2, "Pending": 1, "Closed": 0, "Canceled": 0}
 
 # Pending records split by who has to act next
 PENDING_GROUPS = {
+    "Enforcement": "enforcement",  # County: overdue and sent to enforcement
     "In Review": "city review",
     "Prescreen": "city review",
     "Submitted": "city review",
@@ -325,6 +326,8 @@ LIGHTS = {
     "Pending: other": "yellow",
     None: "yellow",  # no record
     "Pending: corrections >1y": "red",
+    "Pending: enforcement": "red",
+    "Closed": "yellow",  # County: case closed without a certificate
     "Pending: stalled": "red",
     "Canceled": "red",
     "Not due yet": "green",  # no record, but the first recertification is not due

@@ -108,6 +108,16 @@ RECERT_TEXT = {
         "The recertification process is stalled (cancelled, expired or on hold).",
     ),
     "Canceled": ("CANCELED", "red", "The recertification record was canceled."),
+    "Pending: enforcement": (
+        "ENFORCEMENT",
+        "red",
+        "The recertification is overdue and the County sent the case to enforcement.",
+    ),
+    "Closed": (
+        "CASE CLOSED",
+        "yellow",
+        "The County closed the recertification case without a certificate on file. Ask the association why.",
+    ),
 }
 
 
@@ -160,6 +170,8 @@ def recert_detail(tower):
         return (
             f"{tower['year_due']} cycle completed. Next due: {due['year']} (estimated)."
         )
+    if not tower["status_date"]:
+        return f"{tower['year_due']} cycle."
     return f"{tower['year_due']} cycle, last update {tower['status_date']}."
 
 
