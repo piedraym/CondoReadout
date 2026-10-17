@@ -1,11 +1,12 @@
 """Load the building permits of one jurisdiction into PostgreSQL."""
 
 import sys
+from datetime import date, datetime
 
 from applog import get_logger
+from core import LAYERS, ms_to_date, query
 from database import connect, ingest_run
 from psycopg.types.json import Jsonb
-from core import LAYERS, ms_to_date, query
 
 log = get_logger("load_permits")
 
@@ -44,8 +45,63 @@ def miami_permits():
     return permits.values()
 
 
+# Unincorporated Miami-Dade: the County's permit layer. It only holds permits issued in about the
+# last two years and has no status field. OwnerName and the contractor and architect fields are
+# never requested.
+COUNTY_PERMITS = "https://services.arcgis.com/8Pc9XBTAsYuxx9Ny/arcgis/rest/services/miamidade_permit_data/FeatureServer/0"
+COUNTY_FIELDS = [
+    "PermitNumber",
+    "FolioNumber",
+    "PropertyAddress",
+    "PermitType",
+    "ApplicationTypeDescription",
+    "PermitIssuedDate",
+    "CoCcDate",
+    "LastApprovedInspDate",
+    "EstimatedValue",
+    "ProcessNumber",
+]
+COUNTY_TYPES = {  # PermitType code -> words for the report
+    "BLDG": "Building",
+    "ELEC": "Electrical",
+    "PLUM": "Plumbing",
+    "MECH": "Mechanical",
+    "FIRE": "Fire",
+    "LPGX": "Gas",
+    "MBLD": "Mobile home",
+    "ZIPS": "Zoning",
+    "CCUT": "Curb cut",
+}
+
+
+def county_permits():
+    """Permits of the County layer for code 30, as rows of permit (without the jurisdiction)."""
+    for f in query(COUNTY_PERMITS, "FolioNumber LIKE '30%'", COUNTY_FIELDS):
+        p = f["attributes"]
+        kind = COUNTY_TYPES.get(p["PermitType"], p["PermitType"] or "Permit")
+        work = (p["ApplicationTypeDescription"] or "").strip()
+        completed = p["CoCcDate"]  # certificate of occupancy or completion, '05/28/2026'
+        yield (
+            p["PermitNumber"],
+            p["FolioNumber"],
+            p["PropertyAddress"],
+            f"{kind} · {work}" if work else kind,  # 'Building · RE-ROOF/REPAIR'
+            work,
+            "Completed" if completed else "Issued",  # the layer does not say whether a permit is still open
+            date.fromisoformat(p["PermitIssuedDate"]) if p["PermitIssuedDate"] else None,
+            Jsonb(
+                {
+                    "EstimatedValue": p["EstimatedValue"],
+                    "CoCcDate": datetime.strptime(completed, "%m/%d/%Y").date().isoformat() if completed else None,
+                    "LastApprovedInspDate": ms_to_date(p["LastApprovedInspDate"]),
+                    "ProcessNumber": p["ProcessNumber"],
+                }
+            ),
+        )
+
+
 # Each jurisdiction publishes its permits in its own way: one function per code
-SOURCES = {"01": miami_permits}
+SOURCES = {"01": miami_permits, "30": county_permits}
 
 
 def load(code):
