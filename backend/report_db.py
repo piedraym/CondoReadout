@@ -6,18 +6,17 @@ template work with either. The rules (labels, lights, due dates, questions) stay
 
 from datetime import date, datetime, time, timedelta
 
-from database import connect
 from core import (
     BAD_PERMIT_STATUSES,
     IN_PROGRESS_STATUSES,
     add_next_due,
     association_questions,
     building_light,
-    by_count,
     norm_address,
     recert_by_tower,
     recert_label,
 )
+from database import connect
 
 
 def plain(number):
@@ -57,7 +56,9 @@ def summary(db, parent_folio):
         "condo_name": condo[0],
         "name": condo[1],
         "units": condo[3],
-        "unit_types": dict(sorted(condo[4].items(), key=lambda item: (-item[1], item[0]))),
+        "unit_types": dict(
+            sorted(condo[4].items(), key=lambda item: (-item[1], item[0]))
+        ),
         "estimate_floors": condo[5],
         "tower_years": {address: year for address, _, year in towers if year},
         "year_of_construction": condo[6],
@@ -125,8 +126,12 @@ def permit_summary(db, building):
     year_ago = (date.today() - timedelta(days=365)).isoformat()
     return {
         "total": len(permits),
-        "last_12_months": [p for p in permits if (p["PermitIssuedDate"] or "") >= year_ago],
-        "in_progress": [p for p in permits if p["PermitStatus"] in IN_PROGRESS_STATUSES],
+        "last_12_months": [
+            p for p in permits if (p["PermitIssuedDate"] or "") >= year_ago
+        ],
+        "in_progress": [
+            p for p in permits if p["PermitStatus"] in IN_PROGRESS_STATUSES
+        ],
         "not_closed": [p for p in permits if p["PermitStatus"] in BAD_PERMIT_STATUSES],
     }
 
@@ -177,6 +182,52 @@ def dbpr_info(db, building):
     }
 
 
+def violations(db, building):
+    """Open building and code cases, with a status: 'public', 'not_public', 'unavailable' or 'unknown'.
+
+    Whether a jurisdiction publishes its cases is decided in jurisdiction.violations_public;
+    'unavailable' means it publishes them but there is no good load yet.
+    """
+    code = building["parent_folio"][:2]
+    name, public = db.execute(
+        "SELECT name, violations_public FROM jurisdiction WHERE code = %s", [code]
+    ).fetchone()
+    found = {"status": None, "jurisdiction": name, "open": [], "unit_open": 0}
+    if public is None:
+        found["status"] = "unknown"
+    elif not public:
+        found["status"] = "not_public"
+    elif not db.execute(
+        "SELECT 1 FROM ingest_run WHERE source = 'violations' AND status = 'ok'"
+        " AND jurisdiction_code = %s LIMIT 1",
+        [code],
+    ).fetchone():
+        found["status"] = "unavailable"
+    else:
+        found["status"] = "public"
+        found["open"] = [
+            {
+                "case_number": number,
+                "case_type": case_type,
+                "source": source,
+                "opened": opened and opened.isoformat(),
+                "lien": status == "Lien" or bool(extra.get("lien_recorded")),
+            }
+            for number, case_type, source, opened, status, extra in db.execute(
+                "SELECT case_number, case_type, source, opened_date, status, extra FROM violation"
+                " WHERE jurisdiction_code = %s AND folio = %s AND status <> 'Closed'"
+                " ORDER BY case_type = 'Unsafe Structure' DESC, opened_date DESC NULLS LAST, case_number",
+                [code, building["parent_folio"]],
+            )
+        ]
+        found["unit_open"] = db.execute(
+            "SELECT count(*) FROM violation v JOIN unit u ON u.folio = v.folio"
+            " WHERE v.jurisdiction_code = %s AND u.parent_folio = %s AND v.status <> 'Closed'",
+            [code, building["parent_folio"]],
+        ).fetchone()[0]
+    return found
+
+
 def data_dates(db, building):
     """Day of the data behind the report: {'local': ..., 'state': ...} as ISO dates, None if never loaded."""
     latest = dict(
@@ -208,6 +259,7 @@ def build_report(parent_folio):
         add_next_due(building)  # needs coast; may turn "no record" into "Not due yet"
         building["recert_light"] = building_light(building["recert_by_tower"])
         building["dbpr"] = dbpr_info(db, building)
+        building["violations"] = violations(db, building)
         building["questions"] = association_questions(building)
         building["data_dates"] = data_dates(db, building)
     return building

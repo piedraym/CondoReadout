@@ -11,12 +11,14 @@ CREATE TABLE jurisdiction (
     first_recert_age         integer NOT NULL DEFAULT 30,
     first_recert_age_coastal integer NOT NULL DEFAULT 25,
     recert_every             integer NOT NULL DEFAULT 10,
+    violations_public        boolean,  -- publishes its code cases: true, false, or NULL = not checked yet
     active                   boolean NOT NULL DEFAULT false  -- true once its condos are loaded
 );
 
-INSERT INTO jurisdiction (code, name) VALUES
-    ('01', 'City of Miami'),
-    ('30', 'Unincorporated Miami-Dade County');
+INSERT INTO jurisdiction (code, name, violations_public) VALUES
+    ('01', 'City of Miami', false),
+    ('30', 'Unincorporated Miami-Dade County', true);
+
 
 -- One row per load, to know when each source was last refreshed and whether it failed.
 CREATE TABLE ingest_run (

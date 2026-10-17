@@ -296,6 +296,42 @@ def result_text(tower):
     return RECERT_TEXT[tower["label"]][2]
 
 
+MAX_CASES = 5  # open cases listed one per line
+
+
+def violations_text(found):
+    """Card values: the status and, when the cases are public, the open ones."""
+    if found is None:  # built live by core.py, which does not read the cases
+        return {"status": "unknown", "jurisdiction": "this municipality"}
+    cases = found["open"]
+    return {
+        "status": found["status"],
+        "jurisdiction": found["jurisdiction"],
+        "count": len(cases),
+        "lines": violation_lines(cases[:MAX_CASES]),
+        "more": max(0, len(cases) - MAX_CASES),
+        "unsafe": sum(1 for c in cases if c["case_type"] == "Unsafe Structure"),
+        "expired": sum(1 for c in cases if c["case_type"] == "Expired Permit"),
+        "liens": sum(1 for c in cases if c["lien"]),
+        "unit_open": found["unit_open"],
+    }
+
+
+def violation_lines(cases):
+    """Open cases for the card: 'Nov 2021 · Unsafe structure · lien'."""
+    lines = []
+    for case in cases:
+        when = (
+            date.fromisoformat(case["opened"]).strftime("%b %Y")
+            if case["opened"]
+            else ""
+        )
+        lines.append(
+            {"date": when, "type": case["case_type"].capitalize(), "lien": case["lien"]}
+        )
+    return lines
+
+
 def financing_text(building):
     """Box about mortgage financing: whether the lender's Full Review applies and the warning signs."""
     check = financing_check(building)
@@ -333,6 +369,11 @@ def financing_text(building):
         if check["flood_zone"]:
             signals.append(
                 f"High-risk flood zone ({check['flood_zone']}). The review checks the flood insurance."
+            )
+        if check["open_cases"]:
+            violations = "violation" if check["open_cases"] == 1 else "violations"
+            signals.append(
+                f"{check['open_cases']} open code {violations} on the building. The review asks about them."
             )
         if check["commercial"]:
             share = round(100 * check["commercial"] / units)
@@ -410,6 +451,7 @@ def report_context(building):
         "compliance": compliance_rows(building),
         "financing": financing_text(building),
         "lien_search": LIEN_SEARCH.get(building["parent_folio"][:2]),
+        "violations": violations_text(building.get("violations")),
         "permits_total": permits["total"],
         "permits_recent": [
             permit_line(p) for p in permits["last_12_months"][:MAX_PERMITS]

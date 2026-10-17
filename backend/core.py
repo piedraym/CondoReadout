@@ -786,6 +786,7 @@ def financing_check(building):
         "flood_zone": zone
         if zone.startswith(("A", "V"))
         else None,  # high-risk FEMA zones
+        "open_cases": len((building.get("violations") or {}).get("open") or []),
         "commercial": sum(
             n for kind, n in building["unit_types"].items() if kind in COMMERCIAL_TYPES
         ),
@@ -795,7 +796,7 @@ def financing_check(building):
 def association_questions(building):
     """Questions for the buyer to ask the association, based on what the data shows or lacks."""
     questions = [
-        "Request an estoppel letter and written confirmation of no open code violations, unsafe structure cases or liens.",
+        "Request a written confirmation of no open code violations, unsafe structure cases or liens.",
         "Are any special assessments approved, planned or under discussion?",
     ]
     by_label = defaultdict(list)  # towers that are not green, grouped by status
@@ -832,6 +833,15 @@ def association_questions(building):
         if built is None or THIS_YEAR - built >= first_recert_age(building):
             questions.append(
                 "Request the latest milestone inspection report and any repairs it requires."
+            )
+        cases = (building.get("violations") or {}).get("open") or []
+        if cases:
+            unsafe = [c for c in cases if c["case_type"] == "Unsafe Structure"]
+            example = (unsafe or cases)[0]["case_number"]
+            questions.append(
+                f"The County lists {len(cases)} open code violations on the building"
+                f"{f', {len(unsafe)} of them unsafe structure' if unsafe else ''} (e.g. case {example}): "
+                "what are they, what will it cost to correct them, and is there a lien?"
             )
         if building["dbpr"]["sirs_reported"]:
             questions.append(
