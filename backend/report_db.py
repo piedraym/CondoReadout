@@ -45,6 +45,11 @@ def summary(db, parent_folio):
         " ORDER BY units DESC, address",
         [parent_folio],
     ).fetchall()
+    rules = db.execute(
+        "SELECT first_recert_age, first_recert_age_coastal, recert_every, recert_rule_official"
+        " FROM jurisdiction WHERE code = %s",
+        [parent_folio[:2]],
+    ).fetchone()
     folios = db.execute(
         "SELECT folio FROM unit WHERE parent_folio = %s ORDER BY folio", [parent_folio]
     ).fetchall()
@@ -64,6 +69,9 @@ def summary(db, parent_folio):
         "year_of_construction": condo[6],
         "unbuilt": condo[7],
         "folios": [folio for (folio,) in folios],
+        "rules": dict(
+            zip(("first_age", "first_age_coastal", "every", "official"), rules)
+        ),
     }
 
 

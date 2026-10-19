@@ -12,6 +12,7 @@ from core import (
     financing_check,
     first_recert_age,
     pretty_name,
+    recert_rules,
 )
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from report_db import build_report
@@ -55,6 +56,35 @@ LIEN_SEARCH = {
     },
 }
 
+# How the report names each jurisdiction and its sources (data rules live in the jurisdiction table)
+PLACE_TEXT = {
+    "01": {
+        "place": "Miami, FL",
+        "sources": "Miami-Dade County Property Appraiser (year built, units), City of Miami (recertification, "
+        "iBuild permits), Florida DBPR (condominium registry, SIRS reports), FEMA flood zones and shoreline "
+        "as published by Miami-Dade County.",
+        "estimate_note": "Dates marked as estimated follow the county rule and may differ from the City's.",
+        "permits_since": None,  # the City's layer holds every permit
+        "records": "City and County records",
+    },
+    "30": {
+        "place": "Unincorporated Miami-Dade, FL",
+        "sources": "Miami-Dade County Property Appraiser (year built, units), Miami-Dade County (building "
+        "recertification portal, building permits, code violations), Florida DBPR (condominium registry, "
+        "SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County.",
+        "estimate_note": "",
+        "permits_since": "October 2024",  # the County's layer only holds about two years
+        "records": "County records",
+    },
+}
+OTHER_PLACE = {  # a jurisdiction without its own texts yet: name nobody
+    "place": "Miami-Dade County, FL",
+    "sources": "Miami-Dade County Property Appraiser (year built, units), Florida DBPR (condominium registry, "
+    "SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County, and local public records.",
+    "estimate_note": "Dates marked as estimated follow the county rule and may differ from the local rule.",
+    "permits_since": None,
+    "records": "Local and County records",
+}
 
 RESULT_TITLES = {
     "green": "Green · No recertification issues found",
@@ -151,8 +181,8 @@ def permit_line(permit):
     return {"date": issued, "type": permit["PermitType"].capitalize(), "status": status}
 
 
-def recert_detail(tower):
-    """One sentence with the dates we know for a tower."""
+def recert_detail(tower, official):
+    """One sentence with the dates we know for a tower; 'estimated' unless the rule is official."""
     due = tower.get("next_due")
     label = tower["label"]
     if label == "Not built yet":
@@ -160,16 +190,14 @@ def recert_detail(tower):
 
     if label in ("no record", "Not due yet"):
         return (
-            f"Estimated due in {due['year']} ({due['basis']})."
+            f"{'Due' if official else 'Estimated due'} in {due['year']} ({due['basis']})."
             if due
             else "Year built unknown."
         )
     if label == "Exempted":
         return f"Exempted in the {tower['year_due']} cycle."
     if label.startswith("Completed"):
-        return (
-            f"{tower['year_due']} cycle completed. Next due: {due['year']} (estimated)."
-        )
+        return f"{tower['year_due']} cycle completed. Next due: {due['year']}{'' if official else ' (estimated)'}."
     if not tower["status_date"]:
         return f"{tower['year_due']} cycle."
     return f"{tower['year_due']} cycle, last update {tower['status_date']}."
@@ -192,7 +220,7 @@ def compliance_rows(building):
                 "item": item,
                 "badge": badge,
                 "color": color,
-                "detail": recert_detail(tower),
+                "detail": recert_detail(tower, recert_rules(building)["official"]),
             }
         )
     if len(towers) > MAX_TOWERS:
@@ -214,7 +242,8 @@ def compliance_rows(building):
                     "item": "Milestone inspection",
                     "badge": "NOT DUE YET",
                     "color": "green",
-                    "detail": f"Due at {first_recert_age(building)} years old (estimated).",
+                    "detail": f"Due at {first_recert_age(building)} years old"
+                    f"{'' if recert_rules(building)['official'] else ' (estimated)'}.",
                 }
             )
         else:
@@ -287,12 +316,14 @@ def type_text(unit_types):
     return text
 
 
-def result_text(tower):
+def result_text(tower, official):
     """Sentence for the overall result, from the worst tower."""
     if tower["label"] == "no record" and not tower.get("next_due"):
         return (
             "No recertification record was found, and the year built is not on record."
         )
+    if tower["label"] == "no record" and official:
+        return "No recertification record was found, and under the recertification rule one was already due."
     return RECERT_TEXT[tower["label"]][2]
 
 
@@ -396,11 +427,11 @@ def long_date(day):
     return day.strftime("%B %d, %Y").replace(" 0", " ")
 
 
-def data_text(dates):
+def data_text(dates, records="City and County records"):
     """Sentence for the footer about how recent the data is; '' when the dates are unknown."""
     if not dates or not dates["local"]:
         return ""
-    text = f"City and County records as of {long_date(dates['local'])}"
+    text = f"{records} as of {long_date(dates['local'])}"
     if dates["state"]:
         text += f"; State (DBPR) records as of {long_date(dates['state'])}"
     return text + "."
@@ -414,7 +445,9 @@ def report_context(building):
     address = ", ".join(pretty_name(t) for t in towers[:2])
     if len(towers) > 2:
         address += f" + {len(towers) - 2} more"
-    city = f"Miami, FL {building['zip']}"
+    place = PLACE_TEXT.get(building["parent_folio"][:2], OTHER_PLACE)
+    official = recert_rules(building)["official"]
+    city = f"{place['place']} {building['zip']}"
 
     worst = max(
         building["recert_by_tower"].values(),
@@ -447,11 +480,14 @@ def report_context(building):
         "zone_text": zone_text,
         "light": building["recert_light"],
         "result_title": RESULT_TITLES[building["recert_light"]],
-        "result_text": result_text(worst),
+        "result_text": result_text(worst, official),
         "compliance": compliance_rows(building),
         "financing": financing_text(building),
         "lien_search": LIEN_SEARCH.get(building["parent_folio"][:2]),
         "violations": violations_text(building.get("violations")),
+        "sources": place["sources"],
+        "estimate_note": "" if official else place["estimate_note"],
+        "permits_since": place["permits_since"],
         "permits_total": permits["total"],
         "permits_recent": [
             permit_line(p) for p in permits["last_12_months"][:MAX_PERMITS]
@@ -461,7 +497,7 @@ def report_context(building):
         "permits_not_closed": len(permits["not_closed"]),
         "questions": building["questions"],
         "generated": long_date(date.today()),
-        "data_text": data_text(building.get("data_dates")),
+        "data_text": data_text(building.get("data_dates"), place["records"]),
     }
 
 

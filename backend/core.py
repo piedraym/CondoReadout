@@ -697,13 +697,24 @@ def coast_distance(point):
     return {"within_miles": None, "within_3_miles": False}
 
 
+def recert_rules(building):
+    """The jurisdiction's recertification rule from the database, or the County rule as an estimate."""
+    return building.get("rules") or {
+        "first_age": FIRST_RECERT_AGE,
+        "first_age_coastal": FIRST_RECERT_AGE_COASTAL,
+        "every": RECERT_EVERY,
+        "official": False,
+    }
+
+
 def first_recert_age(building):
-    """Age of the first recertification: 25 for coastal buildings of 3+ floors."""
+    """Age of the first recertification: the coastal age for coastal buildings of 3+ floors."""
+    rules = recert_rules(building)
     coastal = (building.get("coast") or {}).get("within_3_miles")
     floors = building["estimate_floors"]
     if coastal and (floors is None or floors >= 3):  # unknown floors: be strict
-        return FIRST_RECERT_AGE_COASTAL
-    return FIRST_RECERT_AGE
+        return rules["first_age_coastal"]
+    return rules["first_age"]
 
 
 def next_recert(building, tower):
@@ -712,7 +723,8 @@ def next_recert(building, tower):
     if label == "Exempted":
         return None
     if label.startswith("Completed"):
-        year, basis = tower["year_due"] + RECERT_EVERY, "last recert + 10"
+        every = recert_rules(building)["every"]
+        year, basis = tower["year_due"] + every, f"last recert + {every}"
     elif tower["year_due"]:  # Pending or Canceled: this cycle is still open
         year, basis = tower["year_due"], "open cycle"
     else:  # no record
@@ -813,7 +825,7 @@ def association_questions(building):
 
         if label == "no record":
             questions.append(
-                f"{where}: request the recertification certificate (no record found in City data)."
+                f"{where}: request the recertification certificate (no record found in the public records)."
             )
         else:
             questions.append(
