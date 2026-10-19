@@ -1,12 +1,14 @@
-"""Match DBPR (Florida Department of Business and Professional Regulation) condo projects (Condo_MD.csv) to City of Miami parent folios."""
+"""Match DBPR (Florida Department of Business and Professional Regulation) condo projects (Condo_MD.csv) to the
+parent folios of the condos in the database, of every loaded jurisdiction. Run it after load_property.py."""
 
 import csv
 import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from core import FUZZY_MIN, fuzzy_name, match_name
+from database import connect
 from rapidfuzz import fuzz, process
-from core import FUZZY_MIN, LAYERS, base_address, fuzzy_name, match_name, query
 
 DATA = Path(__file__).parent / "data"
 OUT = Path(__file__).parent / "out"
@@ -49,34 +51,40 @@ def loose_address(address):
     return " ".join(w for w in address.split() if w not in DIRECTIONS)
 
 
-# 1. City condos: tower addresses and the name from the legal description
-units = [
-    f["attributes"]
-    for f in query(
-        LAYERS["property"],
-        "FOLIO LIKE '01%' AND PARENT_FOLIO IS NOT NULL",
-        [
-            "FOLIO",
-            "PARENT_FOLIO",
-            "TRUE_SITE_ADDR",
-            "TRUE_SITE_UNIT",
-            "LEGAL",
-            "TRUE_SITE_ZIP_CODE",
-        ],
-    )
-]
-condos = defaultdict(lambda: {"towers": set(), "units": 0, "name": None, "zip": None})
-for u in units:
-    c = condos[u["PARENT_FOLIO"]]
-    c["towers"].add(match_address(base_address(u)))
-    c["units"] += 1
-    c["zip"] = c["zip"] or (u["TRUE_SITE_ZIP_CODE"] or "")[:5]
-    if not c["name"]:
-        m = re.match(r"^(.*?)\s+UNIT\b", u["LEGAL"] or "")
-        c["name"] = m.group(1) if m else None
+# 1. Condos in the database: tower addresses and the name from the legal description
+condos = {}
+with connect() as db:
+    for parent, code, name, zip_code, units in db.execute(
+        "SELECT parent_folio, jurisdiction_code, legal_name, zip, units FROM condo"
+    ):
+        condos[parent] = {
+            "code": code,
+            "towers": set(),
+            "units": units,
+            "name": name,
+            "zip": zip_code or "",
+        }
+    for parent, address in db.execute("SELECT parent_folio, address FROM tower"):
+        condos[parent]["towers"].add(match_address(address))
 
-CITY_NAMES = {"MIAMI", "COCONUT GROVE"}  # DBPR city for City of Miami addresses
-CITY_ZIPS = {c["zip"] for c in condos.values()}
+# City names DBPR writes for the addresses of each jurisdiction (measured 2026-10-19)
+DBPR_CITIES = {
+    "01": {"MIAMI", "COCONUT GROVE"},
+    "30": {
+        "MIAMI",
+        "NORTH MIAMI BEACH",
+        "NORTH MIAMI",
+        "MIAMI LAKES",
+        "UNINCORPORATED",
+        "KENDALL",
+        "HIALEAH",
+        "FISHER ISLAND",
+    },
+}
+ZIPS = defaultdict(set)  # jurisdiction -> zips of its condos
+for c in condos.values():
+    ZIPS[c["code"]].add(c["zip"])
+
 OFFICE = re.compile(r"\b(SUITE|STE|C/O)\b|#")  # management office, not the building
 
 
@@ -86,19 +94,30 @@ def zip_of(text):
     return found.group(1) if found else None
 
 
-def city_like(text):
-    """DBPR address says MIAMI or COCONUT GROVE and has a City of Miami zip."""
+def city_like(text, code):
+    """DBPR address names a city of the jurisdiction and has one of its zips."""
     parts = [x.strip() for x in (text or "").split(",")]
     return (
         len(parts) >= 3
-        and parts[-2].upper() in CITY_NAMES
-        and zip_of(text) in CITY_ZIPS
+        and parts[-2].upper() in DBPR_CITIES.get(code, set())
+        and zip_of(text) in ZIPS[code]
     )
 
 
 def first_number(text):
     """Keep the first house number of a range: '3124-26 SW 25 TER' -> '3124 SW 25 TER'."""
     return re.sub(r"^(\d+)\s*(-\s*\d+|,\s*\d+|&\s*\d+)+", r"\1", text.strip())
+
+
+def name_numbers(name):
+    """Numbers in a name, in one spelling: 'RIVERWOOD SEC III #012' -> {'3', '12'}."""
+    return {str(int(w)) for w in fuzzy_name(name).split() if w.isdigit()}
+
+
+def other_section(parent, dbpr_name):
+    """Both names have numbers and share none: another section of the complex ('SEC 1' / 'SEC III')."""
+    ours, theirs = name_numbers(condos[parent]["name"]), name_numbers(dbpr_name)
+    return bool(ours and theirs and not ours & theirs)
 
 
 # Lookups: key -> set of parent folios
@@ -117,6 +136,13 @@ with (DATA / "Condo_MD.csv").open(encoding="latin-1") as f:
     projects = [r for r in csv.DictReader(f) if r["County"] == "Dade"]
 
 
+# An address that several DBPR projects give (an office, or the sections of a complex)
+# does not say which condo a project is
+shared = Counter(
+    match_address(first_number(p["Street City State Zip"])) for p in projects
+)
+
+
 def only(parents):
     """The parent folio if exactly one matches, else None (ambiguous or missing)."""
     return next(iter(parents)) if parents and len(parents) == 1 else None
@@ -124,12 +150,15 @@ def only(parents):
 
 matches = defaultdict(list)  # parent folio -> list of DBPR projects
 methods = Counter()
-review = []  # same name, but the DBPR address is outside the City: check by hand
+review = []  # same name, but the DBPR address is outside the jurisdiction: check by hand
 for p in projects:
     dbpr_address = p["Street City State Zip"]
     address = match_address(first_number(dbpr_address))
-    by_addr = only(by_address.get(address))
-    by_loose_addr = only(by_loose.get(loose_address(address)))
+    if shared[address] > 1:
+        by_addr = by_loose_addr = None
+    else:
+        by_addr = only(by_address.get(address))
+        by_loose_addr = only(by_loose.get(loose_address(address)))
     by_nm = only(by_name.get(match_name(p["Condo Name"])))
     same_zip = by_nm and zip_of(dbpr_address) == condos[by_nm]["zip"]
 
@@ -139,7 +168,9 @@ for p in projects:
         parent, method = by_addr, "address"
     elif by_loose_addr and zip_of(dbpr_address) == condos[by_loose_addr]["zip"]:
         parent, method = by_loose_addr, "loose address"
-    elif by_nm and (city_like(dbpr_address) or OFFICE.search(dbpr_address)):
+    elif by_nm and (
+        city_like(dbpr_address, condos[by_nm]["code"]) or OFFICE.search(dbpr_address)
+    ):
         parent, method = by_nm, "name, other zip"
     else:
         parent, method = None, None
@@ -169,14 +200,41 @@ for p in projects:
         fuzzy_name(p["Condo Name"]), choices, scorer=fuzz.token_sort_ratio, limit=2
     )
     clear_winner = len(best) == 1 or best[1][1] < best[0][1]
-    if best[0][1] >= FUZZY_MIN and clear_winner:
+    if (
+        best[0][1] >= FUZZY_MIN
+        and clear_winner
+        and not other_section(best[0][2], p["Condo Name"])
+    ):
         _, score, parent = best[0]
         matches[parent].append({**p, "method": f"fuzzy name {score:.0f}"})
         methods["fuzzy name"] += 1
 
 
-# 4. Summary and CSVs to review by hand
-print(f"{len(condos)} City condos, {len(matches)} matched to DBPR: {dict(methods)}")
+# 4. A condo found by its exact name keeps only those projects. Several projects found only by
+# address or a similar name are usually other sections of a complex: too unsure to keep
+for parent, found in list(matches.items()):
+    named = [m for m in found if m["method"].startswith("name")]
+    if named:
+        matches[parent] = named
+    elif len(found) > 1:
+        del matches[parent]
+methods = Counter(
+    "fuzzy name" if m["method"].startswith("fuzzy") else m["method"]
+    for found in matches.values()
+    for m in found
+)
+
+
+# 5. Summary and CSVs to review by hand
+print(f"{len(condos)} condos, {len(matches)} matched to DBPR: {dict(methods)}")
+for code in sorted(ZIPS):
+    of_code = [p for p in condos if condos[p]["code"] == code]
+    big = [p for p in of_code if condos[p]["units"] >= 11]
+    print(
+        f"  {code}: {sum(p in matches for p in of_code)} of {len(of_code)} matched,"
+        f" {sum(p in matches for p in big)} of {len(big)} with 11+ units"
+    )
+
 print(
     f"condos with more than one DBPR project: {sum(len(v) > 1 for v in matches.values())}"
 )

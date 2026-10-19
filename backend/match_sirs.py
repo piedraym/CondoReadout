@@ -1,4 +1,4 @@
-"""Which City condos reported a SIRS to DBPR, through Condo_MD projects.
+"""Which condos reported a SIRS to DBPR, through Condo_MD projects.
 
 Needs out/condo_match.csv from match_condos.py (DBPR project -> parent folio).
 """
@@ -9,8 +9,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import openpyxl
-from rapidfuzz import fuzz, process
 from core import FUZZY_MIN, fuzzy_name
+from rapidfuzz import fuzz, process
 
 DATA = Path(__file__).parent / "data"
 OUT = Path(__file__).parent / "out"
@@ -112,12 +112,12 @@ for report in reports:
         }
     )
 
-    if project in parent_of:  # only City condos
+    if project in parent_of:  # only condos in the database.
         sirs[parent_of[project]].add(report["period"])
 
 # 3. Summary and the result per condo
 print(f"{len(reports)} Miami-Dade SIRS reports: {dict(methods)}")
-print(f"{len(sirs)} City condos with a SIRS report:")
+print(f"{len(sirs)} condos with a SIRS report:")
 for periods, n in Counter(" + ".join(sorted(v)) for v in sirs.values()).most_common():
     print(f"  {n:>4}  {periods}")
 
