@@ -24,7 +24,7 @@ export default function App() {
     <main>
       <header>
         <h1>CondoReadout</h1>
-        <p>Recertification and risk report for condos in the City of Miami.</p>
+        <p>Recertification and risk report for Miami-Dade condos.</p>
       </header>
       {folio ? (
         <ReportView folio={folio} onBack={() => show(null)} />

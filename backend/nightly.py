@@ -16,10 +16,25 @@ from applog import get_logger
 
 HERE = Path(__file__).parent
 CONDO_MD = HERE / "data" / "Condo_MD.csv"
-CONDO_MD_URL = "https://www2.myfloridalicense.com/sto/file_download/extracts/Condo_MD.csv"
-MIN_BYTES = 500_000  # the real file is about 1.4 MB: anything much smaller is an error page
+CONDO_MD_URL = (
+    "https://www2.myfloridalicense.com/sto/file_download/extracts/Condo_MD.csv"
+)
+MIN_BYTES = (
+    500_000  # the real file is about 1.4 MB: anything much smaller is an error page
+)
 
-CODES = ["01"]  # jurisdictions that are loaded
+CODES = ["01", "30"]  # jurisdictions that are loaded
+
+STEPS = [
+    "load_property.py",
+    "load_location.py",
+    "load_recert.py",
+    "load_permits.py",
+    "load_violations.py",
+]
+NO_SOURCE = {
+    ("load_violations.py", "01")  # the City does not publish its code violations
+}
 
 log = get_logger("nightly")
 
@@ -53,7 +68,9 @@ def main():
     log.info("nightly refresh started")
     failed = []
     for code in CODES:
-        for script in ("load_property.py", "load_location.py", "load_recert.py", "load_permits.py"):
+        for script in STEPS:
+            if (script, code) in NO_SOURCE:
+                continue
             if not run(script, code):
                 failed.append(f"{script} {code}")
     try:
@@ -67,7 +84,11 @@ def main():
             failed.append(script)
             break  # each one needs the one before
     if failed:
-        log.error("nightly refresh finished with %s failed steps: %s", len(failed), ", ".join(failed))
+        log.error(
+            "nightly refresh finished with %s failed steps: %s",
+            len(failed),
+            ", ".join(failed),
+        )
         raise SystemExit(1)
     log.info("nightly refresh finished, every step ok")
 

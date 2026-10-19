@@ -10,7 +10,6 @@ from core import (
     LIGHT_ORDER,
     THIS_YEAR,
     financing_check,
-    first_recert_age,
     pretty_name,
     recert_rules,
 )
@@ -211,9 +210,9 @@ def compliance_rows(building):
     for address, tower in towers[:MAX_TOWERS]:
         badge, color, _ = RECERT_TEXT[tower["label"]]
         item = (
-            "Recertification"
+            "Recertification (milestone)"
             if len(towers) == 1
-            else f"Recertification · {pretty_name(address)}"
+            else f"Recertification (milestone) · {pretty_name(address)}"
         )
         rows.append(
             {
@@ -233,28 +232,9 @@ def compliance_rows(building):
             }
         )
 
-    floors, built = building["estimate_floors"], building["year_of_construction"]
+    floors = building["estimate_floors"]
     dbpr = building["dbpr"]
     if not building["unbuilt"] and (floors is None or floors >= 3):
-        if built and THIS_YEAR - built < first_recert_age(building):
-            rows.append(
-                {
-                    "item": "Milestone inspection",
-                    "badge": "NOT DUE YET",
-                    "color": "green",
-                    "detail": f"Due at {first_recert_age(building)} years old"
-                    f"{'' if recert_rules(building)['official'] else ' (estimated)'}.",
-                }
-            )
-        else:
-            rows.append(
-                {
-                    "item": "Milestone inspection",
-                    "badge": "NOT PUBLIC",
-                    "color": "gray",
-                    "detail": "Results are not public. Ask the association.",
-                }
-            )
         if dbpr["sirs_reported"]:
             rows.append(
                 {

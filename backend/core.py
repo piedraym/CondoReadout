@@ -844,7 +844,7 @@ def association_questions(building):
     ):  # milestone and SIRS apply to 3+ floors; unknown: be strict
         if built is None or THIS_YEAR - built >= first_recert_age(building):
             questions.append(
-                "Request the latest milestone inspection report and any repairs it requires."
+                "Request the latest recertification (milestone) inspection report and any repairs it requires."
             )
         cases = (building.get("violations") or {}).get("open") or []
         if cases:

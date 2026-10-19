@@ -35,7 +35,7 @@ FRONTEND = (
 
 app = FastAPI(
     title="CondoReadout",
-    description="Recertification and risk report for condos in the City of Miami.",
+    description="Recertification and risk report for Miami-Dade condos.",
 )
 
 

@@ -67,7 +67,7 @@ export default function SearchBox({ onPick }) {
         <ul className="results">
           {error && <li className="empty">{error}</li>}
           {!error && results.length === 0 && (
-            <li className="empty">No City of Miami condo matches that.</li>
+             <li className="empty">No condo matches that. Covered so far: City of Miami and unincorporated Miami-Dade.</li>
           )}
           {results.map((row, i) => (
             <li
@@ -80,7 +80,7 @@ export default function SearchBox({ onPick }) {
                 {row.unbuilt && <span className="unbuilt">Not built yet</span>}
               </div>
               <div className="details">
-                {row.name} · {row.units} units · Miami, FL {row.zip}
+                {row.name} · {row.units} units · {row.place} {row.zip}
               </div>
             </li>
           ))}

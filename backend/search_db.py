@@ -8,8 +8,9 @@ addresses that start with what was typed, then the names, then the rest.
 import re
 import sys
 
-from database import connect
 from core import pretty_name
+from database import connect
+from report import OTHER_PLACE, PLACE_TEXT
 
 MAX_RESULTS = 8
 
@@ -47,13 +48,23 @@ def tokens(text):
 def entries(parent_folio, condo, towers):
     """Rows of search_entry for one condo: one per address, or one by name if it has none."""
     rows = []
-    for address in towers:  # summarize_units leaves "" only when the condo has no address
+    # summarize_units leaves "" only when the condo has no address
+    for address in towers:
         shown = pretty_name(address) or condo["name"] or parent_folio
         name = condo["name"] or pretty_name(address)
         name_words = " " + " ".join(tokens(name)) + " "
         words = " " + " ".join(tokens(shown)) + name_words
         rows.append(
-            (parent_folio, shown, name, condo["zip"], condo["units"], condo["unbuilt"], words, name_words)
+            (
+                parent_folio,
+                shown,
+                name,
+                condo["zip"],
+                condo["units"],
+                condo["unbuilt"],
+                words,
+                name_words,
+            )
         )
     return rows
 
@@ -72,12 +83,20 @@ def search(query, limit=MAX_RESULTS):
         f" WHERE {where} ORDER BY CASE"
         "   WHEN words LIKE %s THEN 0"  # the address starts with it
         "   WHEN name_words LIKE %s OR regexp_replace(name_words, '^ the ', ' ') LIKE %s THEN 1"
-        "   ELSE 2 END, address COLLATE \"C\", name COLLATE \"C\" LIMIT %s"  # C: plain character order
+        '   ELSE 2 END, address COLLATE "C", name COLLATE "C" LIMIT %s'  # C: plain character order
     )
     with connect() as db:
         rows = db.execute(sql, [*params, start, start, start, limit]).fetchall()
     return [
-        {"address": a, "name": n, "zip": z, "units": u, "unbuilt": b, "folio": f}
+        {
+            "address": a,
+            "name": n,
+            "zip": z,
+            "units": u,
+            "unbuilt": b,
+            "folio": f,
+            "place": PLACE_TEXT.get(f[:2], OTHER_PLACE)["place"],
+        }
         for a, n, z, u, b, f in rows
     ]
 
@@ -85,4 +104,6 @@ def search(query, limit=MAX_RESULTS):
 if __name__ == "__main__":
     for row in search(" ".join(sys.argv[1:])):
         status = "  Not built yet" if row["unbuilt"] else ""
-        print(f"{row['address']:<32} {row['name'] or '':<32} {row['units']:>5} units  {row['folio']}{status}")
+        print(
+            f"{row['address']:<32} {row['name'] or '':<32} {row['units']:>5} units  {row['folio']}{status}"
+        )
