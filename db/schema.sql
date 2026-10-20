@@ -18,7 +18,8 @@ CREATE TABLE jurisdiction (
 
 INSERT INTO jurisdiction (code, name, recert_rule_official, violations_public) VALUES
     ('01', 'City of Miami', false, false),  -- the City's web page still says 40 years
-    ('30', 'Unincorporated Miami-Dade County', true, true);  -- County Sec. 8-11(f) applies directly
+    ('30', 'Unincorporated Miami-Dade County', true, true),  -- County Sec. 8-11(f) applies directly
+    ('02', 'City of Miami Beach', true, false);  -- applies Sec. 8-11(f); code cases not loaded yet
 
 -- One row per load, to know when each source was last refreshed and whether it failed.
 CREATE TABLE ingest_run (
