@@ -169,9 +169,7 @@ def request_json(method, url, **kwargs):
                 data = r.json()
                 code = data["error"].get("code") or 0 if "error" in data else None
                 if code is None:
-                    rows = (
-                        f"{len(data['features'])} rows" if "features" in data else "ok"
-                    )
+                    rows = f"{len(data['features'])} rows" if "features" in data else "ok"
                     log.debug(
                         "%s %s: %s in %.1fs",
                         method,
@@ -180,9 +178,7 @@ def request_json(method, url, **kwargs):
                         time.monotonic() - started,
                     )
                     return data
-                if (
-                    code < 500
-                ):  # our mistake (a wrong field, a bad query): retrying will not help
+                if code < 500:  # our mistake (a wrong field, a bad query): retrying will not help
                     log.error("%s answered with an error: %s", layer, data["error"])
                     raise RuntimeError(data["error"])
                 problem = f"ArcGIS error {code}"  # the server's own trouble, sent with HTTP 200
@@ -193,9 +189,7 @@ def request_json(method, url, **kwargs):
             problem = type(error).__name__
         if attempt < TRIES:
             wait = RETRY_WAIT * 2 ** (attempt - 1)
-            log.warning(
-                "%s from %s (%s), trying again in %ss", problem, host, layer, wait
-            )
+            log.warning("%s from %s (%s), trying again in %ss", problem, host, layer, wait)
             time.sleep(wait)
     log.error("No answer from %s after %s tries (%s): %s", host, TRIES, problem, layer)
     raise RuntimeError(f"No answer from {host} after {TRIES} tries ({problem})")
@@ -307,9 +301,7 @@ RECERT_EVERY = 10
 # Fannie Mae / Freddie Mac condo project review (Lender Letter LL-2026-03): from August 3, 2026
 # every loan in a project of more than 10 units needs a Full Review (questionnaire 1076 / 476).
 FULL_REVIEW_MIN_UNITS = 11
-RESERVE_MIN_PERCENT = (
-    15  # of the budget, for loan applications from January 4, 2027 (10 before)
-)
+RESERVE_MIN_PERCENT = 15  # of the budget, for loan applications from January 4, 2027 (10 before)
 COMMERCIAL_TYPES = {
     "office",
     "retail",
@@ -385,9 +377,7 @@ def pretty_name(name):
             pretty.append("No.")
         elif w in UPPER_WORDS:  # roman numerals and directions
             pretty.append(w)
-        elif (
-            re.fullmatch(r"\d+(ST|ND|RD|TH)", w) or w in LOWER_WORDS and i > 0
-        ):  # 10TH -> 10th
+        elif re.fullmatch(r"\d+(ST|ND|RD|TH)", w) or w in LOWER_WORDS and i > 0:  # 10TH -> 10th
             pretty.append(w.lower())
         else:
             pretty.append(w.capitalize())
@@ -476,11 +466,7 @@ def estimate_floors(units):
             by_letter[int(letter.group(1))] += 1
             letters.add(letter.group(2))
     # '1A'..'61F' can be 61 townhouses: trust them only with several units per floor
-    if (
-        by_letter
-        and len(letters) >= 3
-        and sum(by_letter.values()) >= 2 * max(by_letter)
-    ):
+    if by_letter and len(letters) >= 3 and sum(by_letter.values()) >= 2 * max(by_letter):
         by_number.update(by_letter)
     floors = by_number - {0}
     if not floors:
@@ -531,9 +517,7 @@ def summarize_units(parent_folio, master, rows):
     tower_years = {tower: common_year(years) for tower, years in years_by_tower.items()}
 
     # Condominium name: from the first unit whose legal description reads "<NAME> UNIT ..."
-    m = next(
-        (m for r in rows if (m := re.match(r"^(.*?)\s+UNIT\b", r["LEGAL"] or ""))), None
-    )
+    m = next((m for r in rows if (m := re.match(r"^(.*?)\s+UNIT\b", r["LEGAL"] or ""))), None)
 
     # Towers: one parent folio can cover several buildings (one address each)
     # Units without an address (vacant lots, mostly) only make a tower when no unit has one.
@@ -551,16 +535,11 @@ def summarize_units(parent_folio, master, rows):
         "name": pretty_name(m.group(1) if m else None),
         "units": len(rows),
         "unit_types": dict(by_count(Counter(unit_type(r["DOR_DESC"]) for r in rows))),
-        "estimate_floors": estimate_floors(
-            r["TRUE_SITE_UNIT"] for r in rows if not is_street_number(r)
-        ),
+        "estimate_floors": estimate_floors(r["TRUE_SITE_UNIT"] for r in rows if not is_street_number(r)),
         "tower_years": tower_years,
-        "year_of_construction": min(tower_years.values())
-        if tower_years
-        else None,  # oldest tower
+        "year_of_construction": min(tower_years.values()) if tower_years else None,  # oldest tower
         # declared but not built: no year, and every unit is taxed as vacant
-        "unbuilt": not tower_years
-        and all((r["DOR_DESC"] or "").startswith("VACANT") for r in rows),
+        "unbuilt": not tower_years and all((r["DOR_DESC"] or "").startswith("VACANT") for r in rows),
         "folios": folios,
     }
 
@@ -642,21 +621,15 @@ def permit_summary(building, fields):
     year_ago = (date.today() - timedelta(days=365)).isoformat()
     return {
         "total": len(permits),
-        "last_12_months": [
-            p for p in permits if (p["PermitIssuedDate"] or "") >= year_ago
-        ],
-        "in_progress": [
-            p for p in permits if p["PermitStatus"] in IN_PROGRESS_STATUSES
-        ],
+        "last_12_months": [p for p in permits if (p["PermitIssuedDate"] or "") >= year_ago],
+        "in_progress": [p for p in permits if p["PermitStatus"] in IN_PROGRESS_STATUSES],
         "not_closed": [p for p in permits if p["PermitStatus"] in BAD_PERMIT_STATUSES],
     }
 
 
 def building_point(building):
     """Location of the building: master folio, else the first unit."""
-    folio = (
-        building["parent_folio"] if building["master_in_pa"] else building["folios"][0]
-    )
+    folio = building["parent_folio"] if building["master_in_pa"] else building["folios"][0]
     found = query(LAYERS["property"], f"FOLIO='{folio}'", ["FOLIO"], geometry=True)
     if not found or not found[0].get("geometry"):
         return None
@@ -667,18 +640,14 @@ def flood_zone(point):
     """FEMA flood zone at the building's location."""
     if not point:
         return None
-    zones = point_query(
-        LAYERS["flood"], point["x"], point["y"], ["FZONE", "ZONESUBTY", "ELEV"]
-    )
+    zones = point_query(LAYERS["flood"], point["x"], point["y"], ["FZONE", "ZONESUBTY", "ELEV"])
     if not zones:
         return None
     z = zones[0]
     return {
         "zone": z["FZONE"],
         "subtype": (z["ZONESUBTY"] or "").strip() or None,
-        "base_flood_elevation_ft": z["ELEV"]
-        if z["ELEV"] not in (None, -9999)
-        else None,
+        "base_flood_elevation_ft": z["ELEV"] if z["ELEV"] not in (None, -9999) else None,
     }
 
 
@@ -690,9 +659,7 @@ def coast_distance(point):
     if not point:
         return None
     for miles in COAST_BANDS:
-        if point_query(
-            LAYERS["shoreline"], point["x"], point["y"], ["OBJECTID"], distance=miles
-        ):
+        if point_query(LAYERS["shoreline"], point["x"], point["y"], ["OBJECTID"], distance=miles):
             return {"within_miles": miles, "within_3_miles": True}
     return {"within_miles": None, "within_3_miles": False}
 
@@ -767,11 +734,7 @@ def dbpr_info(building):
         ]
     with (OUT / "sirs_by_folio.csv").open() as f:
         sirs = next(
-            (
-                r["sirs_periods"]
-                for r in csv.DictReader(f)
-                if r["parent_folio"] == parent
-            ),
+            (r["sirs_periods"] for r in csv.DictReader(f) if r["parent_folio"] == parent),
             None,
         )
     return {
@@ -792,16 +755,11 @@ def financing_check(building):
     return {
         "full_review": building["units"] >= FULL_REVIEW_MIN_UNITS,
         "recert_label": worst["label"] if worst["light"] != "green" else None,
-        "no_sirs": (floors is None or floors >= 3)
-        and not building["dbpr"]["sirs_reported"],
+        "no_sirs": (floors is None or floors >= 3) and not building["dbpr"]["sirs_reported"],
         "not_closed": len(building["permits"]["not_closed"]),
-        "flood_zone": zone
-        if zone.startswith(("A", "V"))
-        else None,  # high-risk FEMA zones
+        "flood_zone": zone if zone.startswith(("A", "V")) else None,  # high-risk FEMA zones
         "open_cases": len((building.get("violations") or {}).get("open") or []),
-        "commercial": sum(
-            n for kind, n in building["unit_types"].items() if kind in COMMERCIAL_TYPES
-        ),
+        "commercial": sum(n for kind, n in building["unit_types"].items() if kind in COMMERCIAL_TYPES),
     }
 
 
@@ -819,9 +777,7 @@ def association_questions(building):
         if len(towers) > 3:
             where = f"{len(towers)} addresses"
         else:
-            where = (
-                ", ".join(t for t in towers if t) or "The building"
-            )  # no site address on record
+            where = ", ".join(t for t in towers if t) or "The building"  # no site address on record
 
         if label == "no record":
             questions.append(
@@ -839,9 +795,7 @@ def association_questions(building):
             "The building is not completed yet: ask the developer for the expected completion date "
             "and the estimated association budget and reserves."
         )
-    elif (
-        floors is None or floors >= 3
-    ):  # milestone and SIRS apply to 3+ floors; unknown: be strict
+    elif floors is None or floors >= 3:  # milestone and SIRS apply to 3+ floors; unknown: be strict
         if built is None or THIS_YEAR - built >= first_recert_age(building):
             questions.append(
                 "Request the latest recertification (milestone) inspection report and any repairs it requires."
@@ -851,7 +805,8 @@ def association_questions(building):
             unsafe = [c for c in cases if c["case_type"] == "Unsafe Structure"]
             example = (unsafe or cases)[0]["case_number"]
             questions.append(
-                f"The County lists {len(cases)} open code violations on the building"
+                f"{building['violations']['jurisdiction']} records show {len(cases)} open code "
+                f"violation{'' if len(cases) == 1 else 's'} on the building"
                 f"{f', {len(unsafe)} of them unsafe structure' if unsafe else ''} (e.g. case {example}): "
                 "what are they, what will it cost to correct them, and is there a lien?"
             )
@@ -860,14 +815,10 @@ def association_questions(building):
                 "Request a copy of the Structural Integrity Reserve Study (SIRS) and the reserve funding plan."
             )
         else:
-            questions.append(
-                "Request the Structural Integrity Reserve Study (SIRS): it is not in the DBPR registry."
-            )
+            questions.append("Request the Structural Integrity Reserve Study (SIRS): it is not in the DBPR registry.")
 
     if building["dbpr"]["delinquent"]:
-        questions.append(
-            "Is the association current on its annual fee to DBPR? It is listed as delinquent."
-        )
+        questions.append("Is the association current on its annual fee to DBPR? It is listed as delinquent.")
     in_progress = building["permits"]["in_progress"]
     if in_progress:
         questions.append(

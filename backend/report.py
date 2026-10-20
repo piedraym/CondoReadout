@@ -53,6 +53,12 @@ LIEN_SEARCH = {
         "url": "https://www.miami.gov/Services/Building-Permitting/Run-a-Lien-or-Violation-Search",
         "link_text": "miami.gov: Run a Lien or Violation Search",
     },
+    "02": {
+        "who": "The City of Miami Beach",
+        "fee": "$153 for a condo unit",
+        "url": "https://lien.miamibeachfl.gov/",
+        "link_text": "lien.miamibeachfl.gov: Lien Research System",
+    },
 }
 
 # How the report names each jurisdiction and its sources (data rules live in the jurisdiction table)
@@ -74,6 +80,20 @@ PLACE_TEXT = {
         "estimate_note": "",
         "permits_since": "October 2024",  # the County's layer only holds about two years
         "records": "County records",
+    },
+    "02": {
+        "place": "Miami Beach, FL",
+        "sources": "Miami-Dade County Property Appraiser (year built, units), City of Miami Beach (building "
+        "recertification and unsafe structure cases from its Civic Access portal), Florida DBPR (condominium "
+        "registry, SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County.",
+        "estimate_note": "",
+        "permits_since": None,
+        "records": "City and County records",
+        # only part of the city's data is loaded: the report says so
+        "permits_note": "Miami Beach permits are not loaded yet: look the building up in the City's Civic "
+        "Access portal (energovcss.miamibeachfl.gov).",
+        "violations_scope": "Only unsafe structure cases in front of the Special Magistrate are included. "
+        "Other code cases and liens are not loaded.",
     },
 }
 OTHER_PLACE = {  # a jurisdiction without its own texts yet: name nobody
@@ -140,12 +160,12 @@ RECERT_TEXT = {
     "Pending: enforcement": (
         "ENFORCEMENT",
         "red",
-        "The recertification is overdue and the County sent the case to enforcement.",
+        "The recertification is overdue and the case was sent to enforcement.",
     ),
     "Closed": (
         "CASE CLOSED",
         "yellow",
-        "The County closed the recertification case without a certificate on file. Ask the association why.",
+        "The recertification case was closed without a certificate on file. Ask the association why.",
     ),
 }
 
@@ -299,9 +319,7 @@ def type_text(unit_types):
 def result_text(tower, official):
     """Sentence for the overall result, from the worst tower."""
     if tower["label"] == "no record" and not tower.get("next_due"):
-        return (
-            "No recertification record was found, and the year built is not on record."
-        )
+        return "No recertification record was found, and the year built is not on record."
     if tower["label"] == "no record" and official:
         return "No recertification record was found, and under the recertification rule one was already due."
     return RECERT_TEXT[tower["label"]][2]
@@ -310,7 +328,7 @@ def result_text(tower, official):
 MAX_CASES = 5  # open cases listed one per line
 
 
-def violations_text(found):
+def violations_text(found, scope=None):
     """Card values: the status and, when the cases are public, the open ones."""
     if found is None:  # built live by core.py, which does not read the cases
         return {"status": "unknown", "jurisdiction": "this municipality"}
@@ -325,6 +343,7 @@ def violations_text(found):
         "expired": sum(1 for c in cases if c["case_type"] == "Expired Permit"),
         "liens": sum(1 for c in cases if c["lien"]),
         "unit_open": found["unit_open"],
+        "scope": scope,  # which cases are loaded, when not all of them
     }
 
 
@@ -332,14 +351,8 @@ def violation_lines(cases):
     """Open cases for the card: 'Nov 2021 · Unsafe structure · lien'."""
     lines = []
     for case in cases:
-        when = (
-            date.fromisoformat(case["opened"]).strftime("%b %Y")
-            if case["opened"]
-            else ""
-        )
-        lines.append(
-            {"date": when, "type": case["case_type"].capitalize(), "lien": case["lien"]}
-        )
+        when = date.fromisoformat(case["opened"]).strftime("%b %Y") if case["opened"] else ""
+        lines.append({"date": when, "type": case["case_type"].capitalize(), "lien": case["lien"]})
     return lines
 
 
@@ -365,27 +378,18 @@ def financing_text(building):
         )
         if check["recert_label"]:
             signals.append(
-                RECERT_TEXT[check["recert_label"]][2]
-                + " The review asks about structural inspections and repairs."
+                RECERT_TEXT[check["recert_label"]][2] + " The review asks about structural inspections and repairs."
             )
         if check["no_sirs"]:
-            signals.append(
-                "No reserve study (SIRS) in the DBPR registry. The review checks the reserves."
-            )
+            signals.append("No reserve study (SIRS) in the DBPR registry. The review checks the reserves.")
         if check["not_closed"]:
             permits = "permit" if check["not_closed"] == 1 else "permits"
-            signals.append(
-                f"{check['not_closed']} building {permits} expired, revoked or on hold."
-            )
+            signals.append(f"{check['not_closed']} building {permits} expired, revoked or on hold.")
         if check["flood_zone"]:
-            signals.append(
-                f"High-risk flood zone ({check['flood_zone']}). The review checks the flood insurance."
-            )
+            signals.append(f"High-risk flood zone ({check['flood_zone']}). The review checks the flood insurance.")
         if check["open_cases"]:
             violations = "violation" if check["open_cases"] == 1 else "violations"
-            signals.append(
-                f"{check['open_cases']} open code {violations} on the building. The review asks about them."
-            )
+            signals.append(f"{check['open_cases']} open code {violations} on the building. The review asks about them.")
         if check["commercial"]:
             share = round(100 * check["commercial"] / units)
             signals.append(
@@ -419,9 +423,7 @@ def data_text(dates, records="City and County records"):
 
 def report_context(building):
     """Display values for the template, computed from the building data."""
-    towers = [
-        t for t in building["towers"] if t
-    ]  # a few condos have no site address on record
+    towers = [t for t in building["towers"] if t]  # a few condos have no site address on record
     address = ", ".join(pretty_name(t) for t in towers[:2])
     if len(towers) > 2:
         address += f" + {len(towers) - 2} more"
@@ -442,20 +444,12 @@ def report_context(building):
         "address": f"{address}, {city}" if address else city,
         "folio": format_folio(building["parent_folio"]),
         "year_built": built or "—",
-        "age": f"{THIS_YEAR - built} years old"
-        if built
-        else "Not built yet"
-        if building["unbuilt"]
-        else "Unknown",
+        "age": f"{THIS_YEAR - built} years old" if built else "Not built yet" if building["unbuilt"] else "Unknown",
         "floors": building["estimate_floors"] or "—",
         "units": building["units"],
         "type_text": type_text(building["unit_types"]),
-        "coast": f"< {coast['within_miles']} mi"
-        if coast and coast["within_miles"]
-        else "> 3 mi",
-        "coast_text": "Coast or navigable waterway"
-        if coast and coast["within_3_miles"]
-        else "Not a coastal building",
+        "coast": f"< {coast['within_miles']} mi" if coast and coast["within_miles"] else "> 3 mi",
+        "coast_text": "Coast or navigable waterway" if coast and coast["within_3_miles"] else "Not a coastal building",
         "zone": zone,
         "zone_text": zone_text,
         "light": building["recert_light"],
@@ -464,14 +458,13 @@ def report_context(building):
         "compliance": compliance_rows(building),
         "financing": financing_text(building),
         "lien_search": LIEN_SEARCH.get(building["parent_folio"][:2]),
-        "violations": violations_text(building.get("violations")),
+        "violations": violations_text(building.get("violations"), place.get("violations_scope")),
+        "permits_note": place.get("permits_note"),
         "sources": place["sources"],
         "estimate_note": "" if official else place["estimate_note"],
         "permits_since": place["permits_since"],
         "permits_total": permits["total"],
-        "permits_recent": [
-            permit_line(p) for p in permits["last_12_months"][:MAX_PERMITS]
-        ],
+        "permits_recent": [permit_line(p) for p in permits["last_12_months"][:MAX_PERMITS]],
         "permits_recent_count": len(permits["last_12_months"]),
         "permits_in_progress": len(permits["in_progress"]),
         "permits_not_closed": len(permits["not_closed"]),
@@ -482,9 +475,7 @@ def report_context(building):
 
 
 def render_html(building):
-    env = Environment(
-        loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape()
-    )
+    env = Environment(loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape())
     return env.get_template("report.html").render(**report_context(building))
 
 
@@ -498,9 +489,7 @@ if __name__ == "__main__":
         raise SystemExit(f"{folio} is not in the database")
     OUT.mkdir(exist_ok=True)
     html = render_html(building)
-    (OUT / f"report_{folio}.html").write_text(
-        html, encoding="utf-8"
-    )  # to preview in the browser
+    (OUT / f"report_{folio}.html").write_text(html, encoding="utf-8")  # to preview in the browser
     path = OUT / f"report_{folio}.pdf"
     HTML(string=html, base_url=str(HERE)).write_pdf(path)
     print(f"-> {path}")

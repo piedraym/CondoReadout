@@ -110,17 +110,22 @@
     <h2>Also check</h2>
     <div class="cards">
       <div class="card wide">
-        <strong>Building permits in the last 12 months: {{ permits_recent_count }}</strong>
-        {% for permit in permits_recent %}
-        <p class="permit"><span class="when">{{ permit.date }}</span><span class="what">{{ permit.type }}</span><span class="state {{ permit.status|replace(" ", "-") }}">{{ permit.status }}</span></p>
-        {% endfor %}
-        {% if permits_recent_count > permits_recent|length %}<p>and {{ permits_recent_count - permits_recent|length }} more in the last 12 months</p>{% endif %}
-        {% if not permits_recent_count %}<p>No permits issued for the building in the last 12 months.</p>{% endif %}
-        {% if permits_since %}
-          <p class="totals">Since {{ permits_since }}: {{ permits_total }} permits · expired permits appear under code violations</p>
+        {% if permits_note %}
+          <strong>Building permits: not available</strong>
+          <p>{{ permits_note }}</p>
         {% else %}
-          <p class="totals">All time: {{ permits_total }} permits · {{ permits_in_progress }} in progress now · {{ permits_not_closed }} expired, revoked or on hold</p>
-        {% endif %}
+          <strong>Building permits in the last 12 months: {{ permits_recent_count }}</strong>
+          {% for permit in permits_recent %}
+          <p class="permit"><span class="when">{{ permit.date }}</span><span class="what">{{ permit.type }}</span><span class="state {{ permit.status|replace(" ", "-") }}">{{ permit.status }}</span></p>
+          {% endfor %}
+          {% if permits_recent_count > permits_recent|length %}<p>and {{ permits_recent_count - permits_recent|length }} more in the last 12 months</p>{% endif %}
+          {% if not permits_recent_count %}<p>No permits issued for the building in the last 12 months.</p>{% endif %}
+          {% if permits_since %}
+            <p class="totals">Since {{ permits_since }}: {{ permits_total }} permits · expired permits appear under code violations</p>
+          {% else %}
+            <p class="totals">All time: {{ permits_total }} permits · {{ permits_in_progress }} in progress now · {{ permits_not_closed }} expired, revoked or on hold</p>
+          {% endif %}
+      {% endif %}
       </div>
       <div class="card">
         {% if violations.status == "public" %}
@@ -129,9 +134,13 @@
         <p class="permit"><span class="when">{{ case.date }}</span><span class="what">{{ case.type }}</span>{% if case.lien %}<span class="state expired">lien</span>{% endif %}</p>
         {% endfor %}
         {% if violations.more %}<p>and {{ violations.more }} more</p>{% endif %}
-        {% if not violations.count %}<p>No open code violations on the building in the County's records.</p>{% endif %}
+        {% if not violations.count %}<p>No open code violations on the building in {{ violations.jurisdiction }} records.</p>{% endif %}
+        {% if violations.scope %}
+        <p class="totals">{{ violations.scope }}</p>
+        {% else %}
         <p class="totals">Unsafe structure: {{ violations.unsafe }} · Expired permits: {{ violations.expired }} · With a lien: {{ violations.liens }}{% if violations.unit_open %} · {{ violations.unit_open }} more open on individual units{% endif %}</p>
-         {% elif violations.status == "not_public" %}
+        {% endif %}
+        {% elif violations.status == "not_public" %}
         <strong>Code violations: not public</strong>
         <p>{{ violations.jurisdiction }} does not publish code compliance or unsafe structure cases. Ask the association for a written confirmation of no open code violations.</p>
         {% elif violations.status == "unavailable" %}
@@ -141,7 +150,7 @@
         <strong>Code violations: not checked</strong>
         <p>We have not checked yet whether {{ violations.jurisdiction }} publishes its code cases. Ask the association for a written confirmation of no open code violations.</p>
         {% endif %}
-        {% if lien_search and violations.status != "public" %}
+         {% if lien_search and (violations.status != "public" or violations.scope) %}
           <p>{{ lien_search.who }} sells an official lien and violation search for this property ({{ lien_search.fee }}, with folio {{ folio }}): <a href="{{ lien_search.url }}" target="_blank" rel="noopener">{{ lien_search.link_text }}</a>.</p>
         {% endif %}
       </div>

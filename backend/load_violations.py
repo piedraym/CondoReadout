@@ -1,10 +1,15 @@
 """Load the code and building violation cases of one jurisdiction into PostgreSQL."""
 
+import csv
+import re
 import sys
+from collections import defaultdict
+from datetime import datetime
 
 from applog import get_logger
 from core import ms_to_date, query
 from database import connect, ingest_run
+from load_recert import MIAMI_BEACH_FILES, split_address
 from psycopg.types.json import Jsonb
 
 log = get_logger("load_violations")
@@ -73,9 +78,54 @@ def county_violations():
         )
 
 
+# Miami Beach: Unsafe Structures cases in front of the Special Magistrate, exported by hand from
+# Civic Access (Search Code Case) into data/miamibeach/. The export has no folio, so each case is
+# matched to a condo by the address of one of its towers.
+MIAMI_BEACH_CASE_TYPES = {"Unsafe Structures": "Unsafe Structure"}  # Civic Access type -> ours
+
+
+def miami_beach_violations():
+    """Miami Beach cases at the address of a code-02 condo, as rows of violation (without the jurisdiction)."""
+    towers = defaultdict(set)  # (house number, street) -> parent folios
+    with connect() as db:
+        for parent, address in db.execute(
+            "SELECT t.parent_folio, t.address FROM tower t JOIN condo c USING (parent_folio) WHERE c.jurisdiction_code = '02'"
+        ):
+            numbers, street = split_address(address)
+            if numbers:
+                towers[(numbers[0][0], street)].add(parent)
+    cases = {}
+    for path in sorted(MIAMI_BEACH_FILES.glob("*.csv")):
+        with path.open(encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                if row.get("Type") in MIAMI_BEACH_CASE_TYPES:
+                    cases[row["Case Number"]] = row
+    for case in cases.values():
+        numbers, street = split_address(re.sub(r"\s+(UNIT:|MIAMI BEACH).*", "", case["Address"], flags=re.IGNORECASE))
+        parents = {p for low, high in numbers for n in range(low, high + 1) for p in towers.get((n, street), ())}
+        if len(parents) != 1:
+            continue  # not a condo, or an address shared by two condos
+        opened, closed = (
+            datetime.strptime(case[key], "%m/%d/%Y").date() if case[key] else None
+            for key in ("Opened Date", "Closed Date")
+        )
+        yield (
+            "building",
+            case["Case Number"],
+            MIAMI_BEACH_CASE_TYPES[case["Type"]],
+            parents.pop(),  # the condo's folio, so the report finds the case
+            case["Address"],
+            "Closed" if closed else "Open",
+            opened,
+            closed,
+            None,
+            Jsonb({"case_status": case["Status"]}),  # e.g. 'Special Magistrate'
+        )
+
+
 # Each jurisdiction publishes its cases in its own way: one function per code.
 # The City of Miami does not publish them, so it has no entry.
-SOURCES = {"30": county_violations}
+SOURCES = {"30": county_violations, "02": miami_beach_violations}
 
 
 def load(code):
@@ -87,9 +137,7 @@ def load(code):
         rows = [(code, *case) for case in SOURCES[code]()]
         with db.cursor() as cur:
             cur.execute("DELETE FROM violation WHERE jurisdiction_code = %s", [code])
-            cur.executemany(
-                "INSERT INTO violation VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", rows
-            )
+            cur.executemany("INSERT INTO violation VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", rows)
         run.rows = len(rows)
 
 
