@@ -80,6 +80,7 @@ DBPR_CITIES = {
         "HIALEAH",
         "FISHER ISLAND",
     },
+    "02": {"MIAMI BEACH", "MIAMI", "NORMANDY ISLE"},
 }
 ZIPS = defaultdict(set)  # jurisdiction -> zips of its condos
 for c in condos.values():
@@ -97,11 +98,7 @@ def zip_of(text):
 def city_like(text, code):
     """DBPR address names a city of the jurisdiction and has one of its zips."""
     parts = [x.strip() for x in (text or "").split(",")]
-    return (
-        len(parts) >= 3
-        and parts[-2].upper() in DBPR_CITIES.get(code, set())
-        and zip_of(text) in ZIPS[code]
-    )
+    return len(parts) >= 3 and parts[-2].upper() in DBPR_CITIES.get(code, set()) and zip_of(text) in ZIPS[code]
 
 
 def first_number(text):
@@ -138,9 +135,7 @@ with (DATA / "Condo_MD.csv").open(encoding="latin-1") as f:
 
 # An address that several DBPR projects give (an office, or the sections of a complex)
 # does not say which condo a project is
-shared = Counter(
-    match_address(first_number(p["Street City State Zip"])) for p in projects
-)
+shared = Counter(match_address(first_number(p["Street City State Zip"])) for p in projects)
 
 
 def only(parents):
@@ -168,16 +163,12 @@ for p in projects:
         parent, method = by_addr, "address"
     elif by_loose_addr and zip_of(dbpr_address) == condos[by_loose_addr]["zip"]:
         parent, method = by_loose_addr, "loose address"
-    elif by_nm and (
-        city_like(dbpr_address, condos[by_nm]["code"]) or OFFICE.search(dbpr_address)
-    ):
+    elif by_nm and (city_like(dbpr_address, condos[by_nm]["code"]) or OFFICE.search(dbpr_address)):
         parent, method = by_nm, "name, other zip"
     else:
         parent, method = None, None
         if by_nm:
-            review.append(
-                {"parent_folio": by_nm, "pa_name": condos[by_nm]["name"], **p}
-            )
+            review.append({"parent_folio": by_nm, "pa_name": condos[by_nm]["name"], **p})
     if parent:
         matches[parent].append({**p, "method": method})
         methods[method] += 1
@@ -196,15 +187,9 @@ for p in projects:
     choices = leftover_by_zip.get(zip_of(p["Street City State Zip"]))
     if not choices:
         continue
-    best = process.extract(
-        fuzzy_name(p["Condo Name"]), choices, scorer=fuzz.token_sort_ratio, limit=2
-    )
+    best = process.extract(fuzzy_name(p["Condo Name"]), choices, scorer=fuzz.token_sort_ratio, limit=2)
     clear_winner = len(best) == 1 or best[1][1] < best[0][1]
-    if (
-        best[0][1] >= FUZZY_MIN
-        and clear_winner
-        and not other_section(best[0][2], p["Condo Name"])
-    ):
+    if best[0][1] >= FUZZY_MIN and clear_winner and not other_section(best[0][2], p["Condo Name"]):
         _, score, parent = best[0]
         matches[parent].append({**p, "method": f"fuzzy name {score:.0f}"})
         methods["fuzzy name"] += 1
@@ -219,9 +204,7 @@ for parent, found in list(matches.items()):
     elif len(found) > 1:
         del matches[parent]
 methods = Counter(
-    "fuzzy name" if m["method"].startswith("fuzzy") else m["method"]
-    for found in matches.values()
-    for m in found
+    "fuzzy name" if m["method"].startswith("fuzzy") else m["method"] for found in matches.values() for m in found
 )
 
 
@@ -235,21 +218,13 @@ for code in sorted(ZIPS):
         f" {sum(p in matches for p in big)} of {len(big)} with 11+ units"
     )
 
-print(
-    f"condos with more than one DBPR project: {sum(len(v) > 1 for v in matches.values())}"
-)
+print(f"condos with more than one DBPR project: {sum(len(v) > 1 for v in matches.values())}")
 
 missing = [p for p in condos if p not in matches]
 for label, minimum in (("11+", 11), ("51+", 51)):
-    print(
-        f"unmatched with {label} units: {sum(condos[p]['units'] >= minimum for p in missing)}"
-    )
+    print(f"unmatched with {label} units: {sum(condos[p]['units'] >= minimum for p in missing)}")
 
-delinquent = [
-    parent
-    for parent, found in matches.items()
-    if any(m["Secondary Status"] == "Delinquent" for m in found)
-]
+delinquent = [parent for parent, found in matches.items() if any(m["Secondary Status"] == "Delinquent" for m in found)]
 print(
     f"condos with a Delinquent DBPR project: {len(delinquent)}"
     f" ({sum(condos[p]['units'] >= 11 for p in delinquent)} with 11+ units)"

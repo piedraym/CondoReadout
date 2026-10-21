@@ -16,14 +16,10 @@ from applog import get_logger
 
 HERE = Path(__file__).parent
 CONDO_MD = HERE / "data" / "Condo_MD.csv"
-CONDO_MD_URL = (
-    "https://www2.myfloridalicense.com/sto/file_download/extracts/Condo_MD.csv"
-)
-MIN_BYTES = (
-    500_000  # the real file is about 1.4 MB: anything much smaller is an error page
-)
+CONDO_MD_URL = "https://www2.myfloridalicense.com/sto/file_download/extracts/Condo_MD.csv"
+MIN_BYTES = 500_000  # the real file is about 1.4 MB: anything much smaller is an error page
 
-CODES = ["01", "30"]  # jurisdictions that are loaded
+CODES = ["01", "30", "02"]  # jurisdictions that are loaded
 
 STEPS = [
     "load_property.py",
@@ -33,7 +29,8 @@ STEPS = [
     "load_violations.py",
 ]
 NO_SOURCE = {
-    ("load_violations.py", "01")  # the City does not publish its code violations
+    ("load_violations.py", "01"),  # the City does not publish its code violations
+    ("load_permits.py", "02"),  # Miami Beach permits are not loaded yet
 }
 
 log = get_logger("nightly")
@@ -56,9 +53,7 @@ def download_condo_md():
 
 def run(script, *args):
     """Run one of the project's scripts; False if it ended with an error."""
-    done = subprocess.run(
-        [sys.executable, script, *args], cwd=HERE, capture_output=True, text=True
-    )
+    done = subprocess.run([sys.executable, script, *args], cwd=HERE, capture_output=True, text=True)
     if done.returncode:
         log.error("%s %s failed:\n%s", script, " ".join(args), done.stderr[-2000:])
     return not done.returncode
