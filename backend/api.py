@@ -28,9 +28,7 @@ log = get_logger("api")
 
 PASSWORD = os.environ.get("APP_PASSWORD")  # None: no password, as on your Mac
 OPEN_PATHS = {"/health"}  # the server's health check calls it without a password
-FRONTEND = (
-    Path(__file__).parent.parent / "frontend" / "dist"
-)  # built by `npm run build`
+FRONTEND = Path(__file__).parent.parent / "frontend" / "dist"  # built by `npm run build`
 
 
 app = FastAPI(
@@ -90,10 +88,18 @@ def health():
         ).fetchall()
     return {
         "database": "ok",
-        "loads": [
-            {"source": s, "jurisdiction": j, "finished_at": f, "data_date": d}
-            for s, j, f, d in loads
-        ],
+        "loads": [{"source": s, "jurisdiction": j, "finished_at": f, "data_date": d} for s, j, f, d in loads],
+    }
+
+
+@app.get("/stats")
+def stats():
+    """Every result of the Stats page, by query name, as build_stats.py left them last night."""
+    with connect() as db:
+        rows = db.execute("SELECT name, rows, computed_at FROM stat ORDER BY name").fetchall()
+    return {
+        "computed_at": max((at for _, _, at in rows), default=None),
+        "stats": {name: data for name, data, _ in rows},
     }
 
 

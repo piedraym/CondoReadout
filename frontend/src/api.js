@@ -8,3 +8,9 @@ export async function searchCondos(query, signal) {
 
 export const reportUrl = (folio) => `/report/${folio}`
 export const pdfUrl = (folio) => `/report/${folio}/pdf`
+
+export async function getStats() {
+  const response = await fetch('/stats')
+  if (!response.ok) throw new Error(`stats failed: ${response.status}`)
+  return response.json()
+}

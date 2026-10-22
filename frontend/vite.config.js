@@ -11,6 +11,7 @@ export default defineConfig({
     proxy: {
       '/search': API,
       '/report': API,
+      '/stats': API,
       '/health': API,
     },
   },

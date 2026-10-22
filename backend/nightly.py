@@ -78,6 +78,9 @@ def main():
         if not run(script):
             failed.append(script)
             break  # each one needs the one before
+    # last: the Stats page reads the traffic lights and query results computed from all of the above
+    if not run("build_stats.py"):
+        failed.append("build_stats.py")
     if failed:
         log.error(
             "nightly refresh finished with %s failed steps: %s",
@@ -85,6 +88,7 @@ def main():
             ", ".join(failed),
         )
         raise SystemExit(1)
+
     log.info("nightly refresh finished, every step ok")
 
 

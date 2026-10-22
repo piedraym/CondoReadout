@@ -120,3 +120,58 @@ header p {
   border: 1px solid var(--line);
   background: var(--page);
 }
+
+
+/* Links to the two pages */
+header nav {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  font-size: 14px;
+}
+
+header nav a {
+  color: var(--accent);
+}
+
+/* Stats page: one card per chart */
+.stats .as-of {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.stat {
+  margin: 16px 0;
+  padding: 16px 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.stat h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.stat .note {
+  margin: 4px 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.stat details {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.stat table {
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.stat th,
+.stat td {
+  padding: 4px 12px 4px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}

@@ -2,7 +2,7 @@
 -- the traffic light and the questions are computed in Python when a report is asked for.
 -- Running this file again deletes every table and its data: the loaders fill them back.
 
-DROP TABLE IF EXISTS violation, search_entry, sirs_report, condo_dbpr, dbpr_project, permit, recert_record, condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
+DROP TABLE IF EXISTS stat, condo_status, violation, search_entry, sirs_report, condo_dbpr, dbpr_project, permit, recert_record, condo_location, unit, tower, condo, ingest_run, jurisdiction CASCADE;
 
 -- One row per municipality. The code is the first two digits of the folio.
 CREATE TABLE jurisdiction (
@@ -202,4 +202,25 @@ CREATE TABLE violation (
 );
 
 CREATE INDEX violation_folio ON violation (folio);
+
+
+-- What the Stats page shows, computed by build_stats.py after the nightly loads.
+-- The traffic light of each condo: the report computes it in Python, so it is stored here for SQL.
+CREATE TABLE condo_status (
+    parent_folio      text PRIMARY KEY REFERENCES condo(parent_folio) ON DELETE CASCADE,
+    jurisdiction_code text NOT NULL REFERENCES jurisdiction(code),
+    light             text NOT NULL CHECK (light IN ('green', 'yellow', 'red')),
+    label             text NOT NULL,  -- label of the worst tower, e.g. 'Pending: enforcement', 'no record'
+    sirs_reported     boolean NOT NULL,
+    dbpr_delinquent   boolean NOT NULL,
+    open_violations   integer NOT NULL
+);
+
+-- The result of each named query of stats.py, as JSON rows.
+CREATE TABLE stat (
+    name        text PRIMARY KEY,
+    rows        jsonb NOT NULL,
+    computed_at timestamptz NOT NULL DEFAULT now()
+);
+
 
