@@ -195,9 +195,11 @@ header nav a {
 
 
 /* Clickable bar segments and the list of condos under the chart */
-.chart.clickable svg g[aria-label='bar'] rect {
+.chart.clickable svg g[aria-label='bar'] rect,
+.chart.clickable svg g[aria-label='text'] text {
   cursor: pointer;
 }
+
 
 .stat .hint {
   margin: 4px 0 0;

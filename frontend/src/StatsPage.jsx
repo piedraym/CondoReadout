@@ -45,7 +45,7 @@ function StatCard({ chart, rows }) {
     <article className="stat">
       <h3>{chart.title}</h3>
       <p className="note">{chart.note}</p>
-      <Chart make={make} onPick={chart.list ? setPicked : null} />
+      <Chart make={make} onPick={chart.list ? (index) => setPicked(rows[index]) : null} />
       {chart.list && !picked && <p className="hint">Click a bar segment to list its condos.</p>}
       {picked && <CondoList name={chart.name} picked={picked} onClose={() => setPicked(null)} />}
       <details>

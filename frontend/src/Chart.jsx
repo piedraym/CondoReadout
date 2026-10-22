@@ -2,8 +2,8 @@ import * as Plot from '@observablehq/plot'
 import { useEffect, useRef } from 'react'
 
 // One Observable Plot chart. `make(width)` returns the Plot options; it is drawn again when the
-// width of its box changes, so the chart always fits the page. `onPick(datum)` runs when a mark
-// with a tip is clicked: Plot keeps the datum under the pointer in the chart's `value`.
+// width of its box changes, so the chart always fits the page. `onPick(index)` runs when a bar
+// (or the number on it) is clicked, with the index of its row in the chart's data.
 export default function Chart({ make, onPick }) {
   const box = useRef(null)
   const pick = useRef(onPick)
@@ -15,8 +15,10 @@ export default function Chart({ make, onPick }) {
     const draw = () => {
       chart?.remove()
       chart = Plot.plot(make(node.clientWidth))
-      chart.addEventListener('click', () => {
-        if (chart.value && pick.current) pick.current(chart.value)
+      // the clicked bar, or the number written on it: Plot keeps the index of its data row in __data__
+      chart.addEventListener('click', (event) => {
+        const mark = event.target.closest("g[aria-label='bar'] rect, g[aria-label='text'] text")
+        if (mark && Number.isInteger(mark.__data__) && pick.current) pick.current(mark.__data__)
       })
       node.append(chart)
     }
