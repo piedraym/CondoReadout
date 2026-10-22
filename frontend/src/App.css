@@ -148,10 +148,27 @@ header nav a {
   border-radius: 6px;
 }
 
-.stat h2 {
-  margin: 0;
-  font-size: 20px;
+.stat-section {
+  margin-top: 32px;
 }
+
+.stat-section > h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.stat-section > .note {
+  margin: 4px 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.stat h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+
 
 .stat .note {
   margin: 4px 0 12px;
@@ -174,4 +191,69 @@ header nav a {
   padding: 4px 12px 4px 0;
   text-align: left;
   border-bottom: 1px solid var(--line);
+}
+
+
+/* Clickable bar segments and the list of condos under the chart */
+.chart.clickable svg g[aria-label='bar'] rect {
+  cursor: pointer;
+}
+
+.stat .hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.condo-list {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.condo-list-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--active);
+}
+
+.condo-list-bar strong {
+  flex: 1;
+}
+
+.condo-list-bar input {
+  margin: 0 8px;
+  padding: 4px 8px;
+  font-size: 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+
+.condo-list ul {
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.condo-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.condo-list li a {
+  color: var(--accent);
+}
+
+.condo-list li span {
+  color: var(--muted);
+  text-align: right;
 }

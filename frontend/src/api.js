@@ -14,3 +14,10 @@ export async function getStats() {
   if (!response.ok) throw new Error(`stats failed: ${response.status}`)
   return response.json()
 }
+
+export async function getStatCondos(name, jurisdiction, light) {
+  const query = new URLSearchParams({ jurisdiction, light })
+  const response = await fetch(`/stats/${name}/condos?${query}`)
+  if (!response.ok) throw new Error(`condo list failed: ${response.status}`)
+  return response.json()
+}

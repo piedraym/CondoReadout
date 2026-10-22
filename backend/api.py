@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from report import HERE, render_html
 from report_db import build_report
 from search_db import MAX_RESULTS, search
+from stats import LISTS
 from weasyprint import HTML
 
 log = get_logger("api")
@@ -101,6 +102,17 @@ def stats():
         "computed_at": max((at for _, _, at in rows), default=None),
         "stats": {name: data for name, data, _ in rows},
     }
+
+
+@app.get("/stats/{name}/condos")
+def stats_condos(name: str, jurisdiction: str, light: str):
+    """The condos behind one bar segment of a Dashboard chart (its area and light), biggest first."""
+    if name not in LISTS:
+        raise HTTPException(404, f"{name} has no condo list")
+    with connect() as db:
+        cursor = db.execute(LISTS[name], {"jurisdiction": jurisdiction, "light": light})
+        columns = [column.name for column in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 @app.get("/search")
