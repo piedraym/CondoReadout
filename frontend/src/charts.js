@@ -89,4 +89,17 @@ export const CHARTS = [
     list: true, // clicking a segment lists its condos (stats.LISTS in the backend)
   },
 
+  {
+    name: 'milestone_lights_by_jurisdiction',
+    section: 'milestone',
+    title: 'Traffic light of condos under the milestone law',
+    note:
+      'Worst recertification status of each building, by area: in Miami-Dade the recertification counts ' +
+      'as the state milestone inspection. Buildings of 3+ floors (floors estimated; when unknown, condos of 11+ units).',
+    columns: LIGHT_COLUMNS,
+    make: lightBars,
+    list: true, // clicking a segment lists its condos (stats.LISTS in the backend)
+  },
+
+
 ]

@@ -22,6 +22,16 @@ QUERIES = {
         GROUP BY 1, 2
         ORDER BY 1, 2
     """,
+    # traffic light of the buildings under the state milestone law (3+ floors; floors unknown: 11+ units)
+    "milestone_lights_by_jurisdiction": """
+        SELECT j.name AS jurisdiction, s.light, count(*) AS condos
+        FROM condo_status s
+        JOIN condo c USING (parent_folio)
+        JOIN jurisdiction j ON j.code = s.jurisdiction_code
+        WHERE c.estimate_floors >= 3 OR (c.estimate_floors IS NULL AND c.units >= 11)
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+    """,
 }
 
 
@@ -40,4 +50,7 @@ CONDO_LIST = """
 LISTS = {
     "recert_lights_by_jurisdiction": CONDO_LIST.format(where="c.units >= 3"),
     "lights_by_jurisdiction": CONDO_LIST.format(where="c.units >= 11"),
+    "milestone_lights_by_jurisdiction": CONDO_LIST.format(
+        where="(c.estimate_floors >= 3 OR (c.estimate_floors IS NULL AND c.units >= 11))"
+    ),
 }
