@@ -39,7 +39,7 @@ export default function StatsPage() {
 
 function StatCard({ chart, rows }) {
   const make = useMemo(() => chart.make(rows), [chart, rows])
-  const [picked, setPicked] = useState(null) // the bar segment clicked: {jurisdiction, light, condos}
+  const [picked, setPicked] = useState(null) // the row of the bar segment clicked
 
   return (
     <article className="stat">
@@ -47,7 +47,7 @@ function StatCard({ chart, rows }) {
       <p className="note">{chart.note}</p>
       <Chart make={make} onPick={chart.list ? (index) => setPicked(rows[index]) : null} />
       {chart.list && !picked && <p className="hint">Click a bar segment to list its condos.</p>}
-      {picked && <CondoList name={chart.name} picked={picked} onClose={() => setPicked(null)} />}
+      {picked && <CondoList chart={chart} picked={picked} onClose={() => setPicked(null)} />}
       <details>
         <summary>Show the data</summary>
         <table>
@@ -65,8 +65,9 @@ function StatCard({ chart, rows }) {
   )
 }
 
-// The condos behind one bar segment, each a link to its report, biggest first, with a search box
-function CondoList({ name, picked, onClose }) {
+// The condos behind one bar segment (an area and a value), each a link to its report, biggest first, with a search box
+function CondoList({ chart, picked, onClose }) {
+  const value = picked[chart.group.field] // e.g. 'red' or 'reported'
   const [condos, setCondos] = useState(null)
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('')
@@ -75,10 +76,10 @@ function CondoList({ name, picked, onClose }) {
     setCondos(null)
     setError(null)
     setFilter('')
-    getStatCondos(name, picked.jurisdiction, picked.light)
+    getStatCondos(chart.name, picked.jurisdiction, value)
       .then(setCondos)
       .catch(() => setError('The list could not be loaded.'))
-  }, [name, picked])
+  }, [chart.name, picked.jurisdiction, value])
 
   // every typed word must appear in the name or the address, in any case
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean)
@@ -92,7 +93,7 @@ function CondoList({ name, picked, onClose }) {
       <div className="condo-list-bar">
         <strong>
           {words.length && condos ? `${shown.length} of ` : ''}
-          {picked.condos} condos · {picked.jurisdiction} · {picked.light}
+          {picked.condos} condos · {picked.jurisdiction} · {chart.group.names[value]}
         </strong>
         <input
           type="search"

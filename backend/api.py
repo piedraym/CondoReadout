@@ -105,12 +105,12 @@ def stats():
 
 
 @app.get("/stats/{name}/condos")
-def stats_condos(name: str, jurisdiction: str, light: str):
-    """The condos behind one bar segment of a Dashboard chart (its area and light), biggest first."""
+def stats_condos(name: str, jurisdiction: str, value: str):
+    """The condos behind one bar segment of a Dashboard chart (its area and value), biggest first."""
     if name not in LISTS:
         raise HTTPException(404, f"{name} has no condo list")
     with connect() as db:
-        cursor = db.execute(LISTS[name], {"jurisdiction": jurisdiction, "light": light})
+        cursor = db.execute(LISTS[name], {"jurisdiction": jurisdiction, "value": value})
         columns = [column.name for column in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
 

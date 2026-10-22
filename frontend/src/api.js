@@ -15,9 +15,10 @@ export async function getStats() {
   return response.json()
 }
 
-export async function getStatCondos(name, jurisdiction, light) {
-  const query = new URLSearchParams({ jurisdiction, light })
+export async function getStatCondos(name, jurisdiction, value) {
+  const query = new URLSearchParams({ jurisdiction, value })
   const response = await fetch(`/stats/${name}/condos?${query}`)
   if (!response.ok) throw new Error(`condo list failed: ${response.status}`)
   return response.json()
 }
+
