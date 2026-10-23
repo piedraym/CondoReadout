@@ -135,33 +135,90 @@ def county_cases():
     return cases
 
 
+def building_range(building_number):
+    """'1384113853' -> (13841, 13853): newer cases give the building's house numbers glued together."""
+    text = str(building_number or "")
+    half = len(text) // 2
+    if not re.fullmatch(r"\d{8,12}", text) or len(text) % 2:
+        return None
+    low, high = int(text[:half]), int(text[half:])
+    return (low, high) if low <= high <= low + 1000 else None
+
+
+def unit_case(address):
+    """'13847 SW 84 ST 204-1' -> True: a case the County opened for one unit, not for the building."""
+    words = (address or "").upper().replace(".", " ").split()
+    for i, word in enumerate(words[1:], 1):
+        if ADDRESS_WORDS.get(word, word) in STREET_TYPES:
+            return i < len(words) - 1
+    return False
+
+
 def county_records():
-    """County cases matched to the towers of code-30 condos: one row per case and tower it covers."""
-    towers = defaultdict(list)  # street -> [(house number, tower address)]
+    """County cases matched to the towers of code-30 condos: one row per case and tower it covers.
+
+    Three rules keep cases that are not the building's own out of the report:
+    - a case reaches every tower in its house-number range, and in the range of its building number;
+    - a case of a cycle before the tower was built belongs to an earlier building at that address;
+    - when the County opened one case per unit (the case address names a unit), the building's Issued
+      (or Exempt) unit case of a cycle settles it: its other unit cases of that cycle are ignored.
+    """
+    towers = defaultdict(list)  # street -> [(house number, tower address, year built)]
+    parents = defaultdict(set)  # tower address -> parent folios (two condos can share an address)
     with connect() as db:
-        for (address,) in db.execute(
-            "SELECT t.address FROM tower t JOIN condo c USING (parent_folio) WHERE c.jurisdiction_code = '30'"
+        for address, parent, built in db.execute(
+            "SELECT t.address, t.parent_folio, t.year_built FROM tower t JOIN condo c USING (parent_folio)"
+            " WHERE c.jurisdiction_code = '30'"
         ):
             numbers, street = split_address(address)
             if numbers:
-                towers[street].append((numbers[0][0], address))
-    cases = county_cases()
-    for case in cases:
+                towers[street].append((numbers[0][0], address, built))
+                parents[address].add(parent)
+
+    matched = []  # (case, cycle, tower addresses it covers)
+    for case in county_cases():
         numbers, street = split_address(case["PropertyAddress"])
-        covered = {
-            address for number, address in towers.get(street, ()) if any(low <= number <= high for low, high in numbers)
-        }
-        enforcement = case["EnforcementStatus"] == "Yes"
+        if building_range(case["BuildingNumber"]):
+            numbers = numbers + [building_range(case["BuildingNumber"])]
         year = str(case["RecertificationYear"] or "")
+        cycle = int(year) if year.isdigit() else None
+        covered = sorted(
+            {
+                address
+                for number, address, built in towers.get(street, ())
+                if any(low <= number <= high for low, high in numbers) and not (cycle and built and cycle < built)
+            }
+        )
+        if covered:
+            matched.append((case, cycle, covered))
+
+    # (parent folio, building number, cycle) that has an Issued or Exempt unit case
+    settled = {
+        (parent, str(case["BuildingNumber"]), cycle)
+        for case, cycle, covered in matched
+        if case["BuildingNumber"] and unit_case(case["PropertyAddress"]) and case["CaseStatus"] in ("Issued", "Exempt")
+        for address in covered
+        for parent in parents[address]
+    }
+
+    for case, cycle, covered in matched:
+        enforcement = case["EnforcementStatus"] == "Yes"
         issued = case["RecertDate"]
-        for address in sorted(covered):
+        duplicate = (
+            case["BuildingNumber"]
+            and unit_case(case["PropertyAddress"])
+            and case["CaseStatus"] not in ("Issued", "Exempt")
+        )
+        for address in covered:
+            if duplicate and all((p, str(case["BuildingNumber"]), cycle) in settled for p in parents[address]):
+                continue  # the County already recertified this building in this cycle with another case
             yield (
                 f"{case['CaseNumber']}@{address}",  # a case covering three towers is stored three times
                 None,  # the export has no folio
                 address,  # the tower's address, so the report finds it like a City record
                 norm_address(address),
                 None,
-                int(year) if year.isdigit() else None,
+                cycle,
                 COUNTY_STATUS.get(case["CaseStatus"], case["CaseStatus"]),
                 case["CaseNumber"],
                 "Enforcement" if enforcement else case["CaseStatus"],
