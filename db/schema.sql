@@ -213,7 +213,8 @@ CREATE TABLE condo_status (
     label             text NOT NULL,  -- label of the worst tower, e.g. 'Pending: enforcement', 'no record'
     sirs_reported     boolean NOT NULL,
     dbpr_delinquent   boolean NOT NULL,
-    open_violations   integer NOT NULL
+    open_violations   integer NOT NULL,
+    next_due_year     integer  -- year the first tower is due (estimated without a record); NULL when no date
 );
 
 -- The result of each named query of stats.py, as JSON rows.

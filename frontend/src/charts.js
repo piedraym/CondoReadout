@@ -51,6 +51,15 @@ const LABEL = {
     Canceled: 'Canceled',
   },
 }
+// When the next recertification is due: overdue, each of the next five years, or later
+const THIS_YEAR = new Date().getFullYear()
+const NEXT_YEARS = [0, 1, 2, 3, 4].map((n) => String(THIS_YEAR + n))
+const DUE = {
+  field: 'due',
+  values: ['overdue', ...NEXT_YEARS, 'later'],
+  names: { overdue: 'Overdue', later: `${THIS_YEAR + 5} or later`, ...Object.fromEntries(NEXT_YEARS.map((y) => [y, y])) },
+}
+
 const DARK_TEXT = new Set(['yellow', 'not_in_registry', 'no_dbpr']) // light fills: white text would not read
 
 // The three parts of the Dashboard, one per norm, in the order they are shown
@@ -105,9 +114,10 @@ const stackedBars = (group) => (rows) => (width) => {
 
 const SHORT_AREA = { 'Unincorporated Miami-Dade County': 'Unincorporated Miami-Dade', 'City of Miami Beach': 'Miami Beach' }
 
-// One column per area, a bar per status (only the statuses that occur), colored by its traffic light
-const labelBars = (rows) => (width) => {
-  const shown = LABEL.values.filter((label) => rows.some((row) => row.label === label))
+// One column per area and a bar per value of `group` (only the values that occur), colored by
+// `colorKey(row)` on the `color` scale, with the count after the bar
+const barsByArea = (group, colorKey, color) => (rows) => (width) => {
+  const shown = group.values.filter((value) => rows.some((row) => row[group.field] === value))
   return {
     width,
     height: 40 + 24 * shown.length,
@@ -115,15 +125,22 @@ const labelBars = (rows) => (width) => {
     marginRight: 40,
     fx: { label: null, tickFormat: (d) => SHORT_AREA[d] ?? d },
     x: { label: 'Condos', grid: true, ticks: 3, insetRight: 32 }, // room for the number after the longest bar
-    y: { label: null, domain: shown, tickFormat: (d) => LABEL.names[d] },
-    color: { domain: LIGHT.values, range: LIGHT.colors },
+    y: { label: null, domain: shown, tickFormat: (d) => group.names[d] },
+    color,
     marks: [
-      Plot.barX(rows, { fx: 'jurisdiction', y: 'label', x: 'condos', fill: 'light', rx: 2, insetTop: 2, insetBottom: 2, tip: true }),
-      Plot.text(rows, { fx: 'jurisdiction', y: 'label', x: 'condos', text: 'condos', textAnchor: 'start', dx: 4, fill: '#1f2430' }),
+      Plot.barX(rows, { fx: 'jurisdiction', y: group.field, x: 'condos', fill: colorKey, rx: 2, insetTop: 2, insetBottom: 2, tip: true }),
+      Plot.text(rows, { fx: 'jurisdiction', y: group.field, x: 'condos', text: 'condos', textAnchor: 'start', dx: 4, fill: '#1f2430' }),
       Plot.ruleX([0]),
     ],
   }
 }
+
+// statuses colored by their traffic light; due dates in one blue, overdue in red
+const labelBars = barsByArea(LABEL, 'light', { domain: LIGHT.values, range: LIGHT.colors })
+const dueBars = barsByArea(DUE, (d) => (d.due === 'overdue' ? 'overdue' : 'due'), {
+  domain: ['overdue', 'due'],
+  range: ['#c0392b', '#1f4e79'],
+})
 
 const columnsFor = (group, label) => [
   ['jurisdiction', 'Area'],
@@ -199,6 +216,23 @@ export const CHARTS = [
       ['condos', 'Condos'],
     ],
     make: labelBars,
+    list: true, // clicking a bar lists its condos (stats.LISTS in the backend)
+  },
+  {
+    name: 'recert_due_by_jurisdiction',
+    section: 'recertification',
+    title: 'When the next recertification is due',
+    note:
+      'Year the first tower of each condo is due: the last recertification + 10 years, the year of an open ' +
+      'case, or, with no record, the County schedule (Sec. 8-11(f) as amended in 2022). Estimated; every ' +
+      'condo except those of 1 or 2 units, when a date can be computed.',
+    group: DUE,
+    columns: [
+      ['jurisdiction', 'Area'],
+      ['due', 'Due'],
+      ['condos', 'Condos'],
+    ],
+    make: dueBars,
     list: true, // clicking a bar lists its condos (stats.LISTS in the backend)
   },
 ]

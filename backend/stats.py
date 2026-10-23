@@ -15,6 +15,14 @@ SIRS = """CASE
     ELSE 'no_dbpr'
 END"""
 
+# When the next recertification is due: overdue, each of the next five years, or later
+DUE = """CASE
+    WHEN s.next_due_year < extract(year FROM current_date) THEN 'overdue'
+    WHEN s.next_due_year > extract(year FROM current_date) + 4 THEN 'later'
+    ELSE s.next_due_year::text
+END"""
+
+
 # Count of condos by area and by one value: one row per (jurisdiction, value)
 COUNT_BY = """
     SELECT j.name AS jurisdiction, {value} AS {name}, count(*) AS condos
@@ -39,6 +47,10 @@ QUERIES = {
         GROUP BY 1, 2, 3
         ORDER BY 1, 2
     """,
+    # when the next recertification is due (estimated for towers without a record), condos that have a date
+    "recert_due_by_jurisdiction": COUNT_BY.format(
+        value=DUE, name="due", where=f"{RECERTIFICATION} AND s.next_due_year IS NOT NULL"
+    ),
     # traffic light of the buildings under the state milestone law
     "milestone_lights_by_jurisdiction": COUNT_BY.format(value=LIGHT, name="light", where=MILESTONE),
     # SIRS filed with DBPR, of the buildings under the state milestone law
@@ -65,4 +77,7 @@ LISTS = {
     "milestone_sirs_by_jurisdiction": CONDO_LIST.format(value=SIRS, where=MILESTONE),
     "lights_by_jurisdiction": CONDO_LIST.format(value=LIGHT, where=FULL_REVIEW),
     "recert_labels_by_jurisdiction": CONDO_LIST.format(value="s.label", where=RECERTIFICATION),
+    "recert_due_by_jurisdiction": CONDO_LIST.format(
+        value=DUE, where=f"{RECERTIFICATION} AND s.next_due_year IS NOT NULL"
+    ),
 }

@@ -698,9 +698,29 @@ def next_recert(building, tower):
         built = tower["year_built"] or building["year_of_construction"]
         if not built:
             return None
-        age = first_recert_age(building)
-        year, basis = built + age, f"year built + {age}"
+        year, basis = first_recert_due(building, built)
     return {"year": year, "overdue": year < THIS_YEAR, "basis": basis}
+
+
+# County Sec. 8-11(f) was amended on June 1, 2022: the first recertification moved from 40 years to
+# 30 (25 for coastal condos of 3+ floors). Buildings that had passed the new age by then, but not the
+# old 40, had until December 31, 2024; buildings of 40+ keep the schedule of the 40-year program.
+RULE_CHANGE_YEAR = 2022
+CATCH_UP_YEAR = 2024
+OLD_FIRST_AGE = 40
+
+
+def first_recert_due(building, built):
+    """(year, basis) of the first recertification of a tower built in `built`, by the County schedule."""
+    if built + OLD_FIRST_AGE <= RULE_CHANGE_YEAR:
+        return built + OLD_FIRST_AGE, f"40-year rule: year built + {OLD_FIRST_AGE}"
+    age = first_recert_age(building)
+    if built + age <= RULE_CHANGE_YEAR:
+        return (
+            CATCH_UP_YEAR,
+            f"already {age}+ years old when the rule changed in 2022: deadline Dec 31, {CATCH_UP_YEAR}",
+        )
+    return built + age, f"year built + {age}"
 
 
 def add_next_due(building):
