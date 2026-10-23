@@ -18,6 +18,7 @@ def condo_statuses(db):
         building = build_report(parent)
         worst = max(building["recert_by_tower"].values(), key=lambda t: LIGHT_ORDER.index(t["light"]))
         due = [t["next_due"]["year"] for t in building["recert_by_tower"].values() if t.get("next_due")]
+        current = any(t["label"] in ("Completed", "Exempted") for t in building["recert_by_tower"].values())
         yield (
             parent,
             parent[:2],
@@ -27,6 +28,8 @@ def condo_statuses(db):
             building["dbpr"]["delinquent"],
             len((building.get("violations") or {}).get("open") or []),
             min(due) if due else None,  # the tower that is due first
+            # why a green condo is green: a recertification on file, or a building too new to need one yet
+            ("current" if current else "not_due") if building["recert_light"] == "green" else None,
         )
         if i % 500 == 0:
             log.info("%s of %s condos done", i, len(parents))
@@ -38,7 +41,7 @@ def load():
         statuses = list(condo_statuses(db))
         with db.cursor() as cur:
             cur.execute("DELETE FROM condo_status")
-            cur.executemany("INSERT INTO condo_status VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", statuses)
+            cur.executemany("INSERT INTO condo_status VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", statuses)
             cur.execute("DELETE FROM stat")
             for name, sql in QUERIES.items():
                 cur.execute(sql)

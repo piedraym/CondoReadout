@@ -35,6 +35,7 @@
   .result.red .kicker { color: #8a2417; }
   .result h3 { font: bold 19px Georgia, "Times New Roman", serif; margin: 2px 0 4px; }
   .result p { margin: 0; font-size: 12.5px; }
+  .result p.legend { margin-top: 4px; font-size: 11px; color: #5d6470; }
   table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #d9d5cc; }
   td { padding: 6px 13px; vertical-align: top; border-top: 1px solid #e6e2da; }
   tr:first-child td { border-top: 0; }
@@ -93,6 +94,7 @@
         <div class="kicker">OVERALL RESULT</div>
         <h3>{{ result_title }}</h3>
         <p>{{ result_text }} This rating covers recertification only; the items below are for your own review.</p>
+        <p class="legend">Green = current or not yet due · Yellow = items to verify · Red = recertification problem.</p>
       </div>
     </div>
 

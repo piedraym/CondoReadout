@@ -6,8 +6,9 @@ RECERTIFICATION = "c.units >= 3"  # County Sec. 8-11: every condo but houses and
 MILESTONE = "(c.estimate_floors >= 3 OR (c.estimate_floors IS NULL AND c.units >= 11))"  # state law: 3+ floors
 FULL_REVIEW = "c.units >= 11"  # Fannie Mae / Freddie Mac Full Review: more than 10 units
 
-# What a chart groups by inside each area
-LIGHT = "s.light"
+# What a chart groups by inside each area. The light splits green in two: current, or not due yet
+LIGHT = "CASE WHEN s.light = 'green' THEN 'green_' || s.green_kind ELSE s.light END"
+
 SIRS = """CASE
     WHEN s.sirs_reported THEN 'reported'
     WHEN EXISTS (SELECT 1 FROM condo_dbpr m WHERE m.parent_folio = c.parent_folio AND NOT m.needs_review)

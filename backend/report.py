@@ -61,6 +61,7 @@ LIEN_SEARCH = {
     },
 }
 
+
 # How the report names each jurisdiction and its sources (data rules live in the jurisdiction table)
 PLACE_TEXT = {
     "01": {
@@ -80,6 +81,7 @@ PLACE_TEXT = {
         "estimate_note": "",
         "permits_since": "October 2024",  # the County's layer only holds about two years
         "records": "County records",
+        "enforcement": "The County has opened a compliance proceeding because the recertification is overdue.",
     },
     "02": {
         "place": "Miami Beach, FL",
@@ -106,7 +108,7 @@ OTHER_PLACE = {  # a jurisdiction without its own texts yet: name nobody
 }
 
 RESULT_TITLES = {
-    "green": "Green · No recertification issues found",
+    "green": "Green · Current or not yet due",
     "yellow": "Yellow · Items to verify",
     "red": "Red · Recertification problem",
 }
@@ -200,10 +202,27 @@ def permit_line(permit):
     return {"date": issued, "type": permit["PermitType"].capitalize(), "status": status}
 
 
-def recert_detail(tower, official):
+def enforcement_detail(tower, building):
+    """The County case behind ENFORCEMENT (code 30), so the realtor can look it up in the County's portal."""
+    text = f"Case {tower['plan']} · open since {tower['year_due']}."
+    cases = (building.get("violations") or {}).get("open") or []
+    # the County files an overdue recertification as an unsafe structure case too: count only the others
+    unsafe = [
+        c["case_number"] for c in cases if c["case_type"] == "Unsafe Structure" and c["case_number"] != tower["plan"]
+    ]
+    if unsafe:
+        cases_word = "case" if len(unsafe) == 1 else "cases"
+        text += f" Also {len(unsafe)} other open unsafe structure {cases_word} on the building (e.g. {unsafe[0]})."
+    day = (building.get("data_dates") or {}).get("local")
+    return f"{text} County records as of {long_date(day)}." if day else text
+
+
+def recert_detail(tower, official, building=None):
     """One sentence with the dates we know for a tower; 'estimated' unless the rule is official."""
     due = tower.get("next_due")
     label = tower["label"]
+    if label == "Pending: enforcement" and building and building["parent_folio"].startswith("30"):
+        return enforcement_detail(tower, building)
     if label == "Not built yet":
         return "No year built on record; the units are listed as vacant."
 
@@ -239,7 +258,7 @@ def compliance_rows(building):
                 "item": item,
                 "badge": badge,
                 "color": color,
-                "detail": recert_detail(tower, recert_rules(building)["official"]),
+                "detail": recert_detail(tower, recert_rules(building)["official"], building),
             }
         )
     if len(towers) > MAX_TOWERS:
@@ -316,8 +335,10 @@ def type_text(unit_types):
     return text
 
 
-def result_text(tower, official):
+def result_text(tower, official, place=OTHER_PLACE):
     """Sentence for the overall result, from the worst tower."""
+    if tower["label"] == "Pending: enforcement" and place.get("enforcement"):
+        return place["enforcement"]
     if tower["label"] == "no record" and not tower.get("next_due"):
         return "No recertification record was found, and the year built is not on record."
     if tower["label"] == "no record" and official:
@@ -454,7 +475,7 @@ def report_context(building):
         "zone_text": zone_text,
         "light": building["recert_light"],
         "result_title": RESULT_TITLES[building["recert_light"]],
-        "result_text": result_text(worst, official),
+        "result_text": result_text(worst, official, place),
         "compliance": compliance_rows(building),
         "financing": financing_text(building),
         "lien_search": LIEN_SEARCH.get(building["parent_folio"][:2]),

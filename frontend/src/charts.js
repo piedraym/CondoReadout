@@ -4,10 +4,18 @@ import * as Plot from '@observablehq/plot'
 // order, with their colors (the same as the report's badges) and their names for people
 const LIGHT = {
   field: 'light',
-  values: ['green', 'yellow', 'red'],
-  colors: ['#3f8f3a', '#d18f00', '#c0392b'],
-  names: { green: 'Green', yellow: 'Yellow', red: 'Red' },
+  values: ['green_current', 'green_not_due', 'yellow', 'red'],
+  colors: ['#3f8f3a', '#a3d39c', '#d18f00', '#c0392b'],
+  names: {
+    green_current: 'Green · current',
+    green_not_due: 'Green · not yet due',
+    yellow: 'Yellow',
+    red: 'Red',
+  },
 }
+// the report's three traffic light colors, for charts that color by the plain light
+const TRAFFIC = { domain: ['green', 'yellow', 'red'], range: ['#3f8f3a', '#d18f00', '#c0392b'] }
+
 const SIRS = {
   field: 'sirs',
   values: ['reported', 'not_in_registry', 'no_dbpr'],
@@ -60,7 +68,7 @@ const DUE = {
   names: { overdue: 'Overdue', later: `${THIS_YEAR + 5} or later`, ...Object.fromEntries(NEXT_YEARS.map((y) => [y, y])) },
 }
 
-const DARK_TEXT = new Set(['yellow', 'not_in_registry', 'no_dbpr']) // light fills: white text would not read
+const DARK_TEXT = new Set(['green_not_due', 'yellow', 'not_in_registry', 'no_dbpr']) // light fills: white text would not read
 
 // The three parts of the Dashboard, one per norm, in the order they are shown
 export const SECTIONS = [
@@ -136,7 +144,7 @@ const barsByArea = (group, colorKey, color) => (rows) => (width) => {
 }
 
 // statuses colored by their traffic light; due dates in one blue, overdue in red
-const labelBars = barsByArea(LABEL, 'light', { domain: LIGHT.values, range: LIGHT.colors })
+const labelBars = barsByArea(LABEL, 'light', TRAFFIC)
 const dueBars = barsByArea(DUE, (d) => (d.due === 'overdue' ? 'overdue' : 'due'), {
   domain: ['overdue', 'due'],
   range: ['#c0392b', '#1f4e79'],

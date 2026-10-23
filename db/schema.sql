@@ -214,7 +214,8 @@ CREATE TABLE condo_status (
     sirs_reported     boolean NOT NULL,
     dbpr_delinquent   boolean NOT NULL,
     open_violations   integer NOT NULL,
-    next_due_year     integer  -- year the first tower is due (estimated without a record); NULL when no date
+    next_due_year     integer,  -- year the first tower is due (estimated without a record); NULL when no date
+    green_kind        text CHECK (green_kind IN ('current', 'not_due'))  -- why a green condo is green; NULL if not green
 );
 
 -- The result of each named query of stats.py, as JSON rows.
