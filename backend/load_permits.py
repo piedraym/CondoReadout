@@ -48,7 +48,9 @@ def miami_permits():
 # Unincorporated Miami-Dade: the County's permit layer. It only holds permits issued in about the
 # last two years and has no status field. OwnerName and the contractor and architect fields are
 # never requested.
-COUNTY_PERMITS = "https://services.arcgis.com/8Pc9XBTAsYuxx9Ny/arcgis/rest/services/miamidade_permit_data/FeatureServer/0"
+COUNTY_PERMITS = (
+    "https://services.arcgis.com/8Pc9XBTAsYuxx9Ny/arcgis/rest/services/miamidade_permit_data/FeatureServer/0"
+)
 COUNTY_FIELDS = [
     "PermitNumber",
     "FolioNumber",
@@ -74,6 +76,14 @@ COUNTY_TYPES = {  # PermitType code -> words for the report
 }
 
 
+def completion_date(text):
+    """'05/28/2026' -> '2026-05-28'; None when empty or not a date (a few permits have a number there)."""
+    try:
+        return datetime.strptime(text, "%m/%d/%Y").date().isoformat() if text else None
+    except ValueError:
+        return None
+
+
 def county_permits():
     """Permits of the County layer for code 30, as rows of permit (without the jurisdiction)."""
     for f in query(COUNTY_PERMITS, "FolioNumber LIKE '30%'", COUNTY_FIELDS):
@@ -92,7 +102,7 @@ def county_permits():
             Jsonb(
                 {
                     "EstimatedValue": p["EstimatedValue"],
-                    "CoCcDate": datetime.strptime(completed, "%m/%d/%Y").date().isoformat() if completed else None,
+                    "CoCcDate": completion_date(completed),
                     "LastApprovedInspDate": ms_to_date(p["LastApprovedInspDate"]),
                     "ProcessNumber": p["ProcessNumber"],
                 }
@@ -113,9 +123,7 @@ def load(code):
         rows = [(code, *permit) for permit in SOURCES[code]()]
         with db.cursor() as cur:
             cur.execute("DELETE FROM permit WHERE jurisdiction_code = %s", [code])
-            cur.executemany(
-                "INSERT INTO permit VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", rows
-            )
+            cur.executemany("INSERT INTO permit VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", rows)
         run.rows = len(rows)
 
 

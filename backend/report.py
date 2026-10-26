@@ -70,7 +70,7 @@ PLACE_TEXT = {
         "iBuild permits), Florida DBPR (condominium registry, SIRS reports), FEMA flood zones and shoreline "
         "as published by Miami-Dade County.",
         "estimate_note": "Dates marked as estimated follow the county rule and may differ from the City's.",
-        "permits_since": None,  # the City's layer holds every permit
+        "permits_partial": False,  # the City's layer holds every permit
         "records": "City and County records",
     },
     "30": {
@@ -79,7 +79,7 @@ PLACE_TEXT = {
         "recertification portal, building permits, code violations), Florida DBPR (condominium registry, "
         "SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County.",
         "estimate_note": "",
-        "permits_since": "October 2024",  # the County's layer only holds about two years
+        "permits_partial": True,  # the County's layer only holds recent years: the report says since when
         "records": "County records",
         "enforcement": "The County has opened a compliance proceeding because the recertification is overdue.",
     },
@@ -89,7 +89,7 @@ PLACE_TEXT = {
         "recertification and unsafe structure cases from its Civic Access portal), Florida DBPR (condominium "
         "registry, SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County.",
         "estimate_note": "",
-        "permits_since": None,
+        "permits_partial": False,
         "records": "City and County records",
         # only part of the city's data is loaded: the report says so
         "permits_note": "Miami Beach permits are not loaded yet: look the building up in the City's Civic "
@@ -103,7 +103,7 @@ OTHER_PLACE = {  # a jurisdiction without its own texts yet: name nobody
     "sources": "Miami-Dade County Property Appraiser (year built, units), Florida DBPR (condominium registry, "
     "SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County, and local public records.",
     "estimate_note": "Dates marked as estimated follow the county rule and may differ from the local rule.",
-    "permits_since": None,
+    "permits_partial": False,
     "records": "Local and County records",
 }
 
@@ -483,7 +483,11 @@ def report_context(building):
         "permits_note": place.get("permits_note"),
         "sources": place["sources"],
         "estimate_note": "" if official else place["estimate_note"],
-        "permits_since": place["permits_since"],
+        "permits_since": (
+            date.fromisoformat(permits["since"]).strftime("%B %Y")
+            if place.get("permits_partial") and permits.get("since")
+            else None
+        ),
         "permits_total": permits["total"],
         "permits_recent": [permit_line(p) for p in permits["last_12_months"][:MAX_PERMITS]],
         "permits_recent_count": len(permits["last_12_months"]),

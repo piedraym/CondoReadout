@@ -41,8 +41,7 @@ def summary(db, parent_folio):
     if not condo:
         return None
     towers = db.execute(
-        "SELECT address, units, year_built FROM tower WHERE parent_folio = %s"
-        " ORDER BY units DESC, address",
+        "SELECT address, units, year_built FROM tower WHERE parent_folio = %s ORDER BY units DESC, address",
         [parent_folio],
     ).fetchall()
     rules = db.execute(
@@ -50,9 +49,7 @@ def summary(db, parent_folio):
         " FROM jurisdiction WHERE code = %s",
         [parent_folio[:2]],
     ).fetchone()
-    folios = db.execute(
-        "SELECT folio FROM unit WHERE parent_folio = %s ORDER BY folio", [parent_folio]
-    ).fetchall()
+    folios = db.execute("SELECT folio FROM unit WHERE parent_folio = %s ORDER BY folio", [parent_folio]).fetchall()
     return {
         "parent_folio": parent_folio,
         "master_in_pa": condo[8],
@@ -61,17 +58,13 @@ def summary(db, parent_folio):
         "condo_name": condo[0],
         "name": condo[1],
         "units": condo[3],
-        "unit_types": dict(
-            sorted(condo[4].items(), key=lambda item: (-item[1], item[0]))
-        ),
+        "unit_types": dict(sorted(condo[4].items(), key=lambda item: (-item[1], item[0]))),
         "estimate_floors": condo[5],
         "tower_years": {address: year for address, _, year in towers if year},
         "year_of_construction": condo[6],
         "unbuilt": condo[7],
         "folios": [folio for (folio,) in folios],
-        "rules": dict(
-            zip(("first_age", "first_age_coastal", "every", "official"), rules)
-        ),
+        "rules": dict(zip(("first_age", "first_age_coastal", "every", "official"), rules)),
     }
 
 
@@ -132,14 +125,15 @@ def permit_summary(db, building):
         for number, status, permit_type, scope, issued in rows
     ]
     year_ago = (date.today() - timedelta(days=365)).isoformat()
+    # the oldest permit the source holds: some layers only keep recent years
+    first = db.execute(
+        "SELECT min(issued_date) FROM permit WHERE jurisdiction_code = %s", [building["parent_folio"][:2]]
+    ).fetchone()[0]
     return {
+        "since": first and first.isoformat(),
         "total": len(permits),
-        "last_12_months": [
-            p for p in permits if (p["PermitIssuedDate"] or "") >= year_ago
-        ],
-        "in_progress": [
-            p for p in permits if p["PermitStatus"] in IN_PROGRESS_STATUSES
-        ],
+        "last_12_months": [p for p in permits if (p["PermitIssuedDate"] or "") >= year_ago],
+        "in_progress": [p for p in permits if p["PermitStatus"] in IN_PROGRESS_STATUSES],
         "not_closed": [p for p in permits if p["PermitStatus"] in BAD_PERMIT_STATUSES],
     }
 
@@ -147,8 +141,7 @@ def permit_summary(db, building):
 def location(db, building):
     """Flood zone and coast distance as core.flood_zone and core.coast_distance return them."""
     row = db.execute(
-        "SELECT flood_zone, flood_subtype, flood_bfe, coast_within_miles FROM condo_location"
-        " WHERE parent_folio = %s",
+        "SELECT flood_zone, flood_subtype, flood_bfe, coast_within_miles FROM condo_location WHERE parent_folio = %s",
         [building["parent_folio"]],
     ).fetchone()
     if not row:  # not looked up yet: run load_location.py
@@ -197,17 +190,14 @@ def violations(db, building):
     'unavailable' means it publishes them but there is no good load yet.
     """
     code = building["parent_folio"][:2]
-    name, public = db.execute(
-        "SELECT name, violations_public FROM jurisdiction WHERE code = %s", [code]
-    ).fetchone()
+    name, public = db.execute("SELECT name, violations_public FROM jurisdiction WHERE code = %s", [code]).fetchone()
     found = {"status": None, "jurisdiction": name, "open": [], "unit_open": 0}
     if public is None:
         found["status"] = "unknown"
     elif not public:
         found["status"] = "not_public"
     elif not db.execute(
-        "SELECT 1 FROM ingest_run WHERE source = 'violations' AND status = 'ok'"
-        " AND jurisdiction_code = %s LIMIT 1",
+        "SELECT 1 FROM ingest_run WHERE source = 'violations' AND status = 'ok' AND jurisdiction_code = %s LIMIT 1",
         [code],
     ).fetchone():
         found["status"] = "unavailable"
