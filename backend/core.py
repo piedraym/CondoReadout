@@ -598,6 +598,37 @@ def building_light(towers):
     return max((t["light"] for t in towers.values()), key=LIGHT_ORDER.index)
 
 
+SHOWN_ADDRESSES = 3  # addresses named in a row or question before "+ N more"
+
+
+def tower_groups(towers):
+    """Towers with the same status, cycle and next due year, worst first: one table row and one question each."""
+    groups = {}
+    for address, t in towers.items():
+        key = (t["label"], t.get("year_due"), (t.get("next_due") or {}).get("year"))
+        group = groups.setdefault(key, {"tower": t, "addresses": [], "towers": []})
+        group["addresses"].append(address)
+        group["towers"].append(t)
+    return sorted(groups.values(), key=lambda g: -LIGHT_ORDER.index(g["tower"]["light"]))
+
+
+def group_where(group, all_towers):
+    """'All 13 addresses', '13841, 13843, 13845 SW 84 St + 9 more' (one street) or full addresses; None if none."""
+    names = [pretty_name(a) for a in group["addresses"] if a]
+    if not names:
+        return None  # no site address on record
+    if len(names) == all_towers > SHOWN_ADDRESSES:
+        return f"All {len(names)} addresses"
+    more = f" + {len(names) - SHOWN_ADDRESSES} more" if len(names) > SHOWN_ADDRESSES else ""
+    parts = [re.fullmatch(r"(\d+)(\S*) (.+)", n) for n in names]
+    if not all(parts):  # an address without a house number: keep the order
+        return ", ".join(names[:SHOWN_ADDRESSES]) + more
+    parts.sort(key=lambda p: (p[3], int(p[1])))  # by street, then house number
+    if len({p[3] for p in parts}) == 1:  # one street: say it once
+        return f"{', '.join(p[1] + p[2] for p in parts[:SHOWN_ADDRESSES])} {parts[0][3]}{more}"
+    return ", ".join(p[0] for p in parts[:SHOWN_ADDRESSES]) + more
+
+
 IN_PROGRESS_STATUSES = ("Active", "Pending", "InAdjustment")
 
 
@@ -789,16 +820,12 @@ def association_questions(building):
         "Request a written confirmation of no open code violations, unsafe structure cases or liens.",
         "Are any special assessments approved, planned or under discussion?",
     ]
-    by_label = defaultdict(list)  # towers that are not green, grouped by status
-    for tower, t in building["recert_by_tower"].items():
-        if t["light"] != "green":
-            by_label[t["label"]].append(tower)
-    for label, towers in by_label.items():
-        if len(towers) > 3:
-            where = f"{len(towers)} addresses"
-        else:
-            where = ", ".join(t for t in towers if t) or "The building"  # no site address on record
-
+    all_towers = len(building["recert_by_tower"])
+    for group in tower_groups(building["recert_by_tower"]):  # the same groups as the compliance table
+        if group["tower"]["light"] == "green":
+            continue
+        label = group["tower"]["label"]
+        where = group_where(group, all_towers) or "The building"
         if label == "no record":
             questions.append(
                 f"{where}: request the recertification certificate (no record found in the public records)."

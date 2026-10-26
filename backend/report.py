@@ -1,6 +1,7 @@
 """Render the building report (HTML and PDF) from the database, through report_db.build_report."""
 
 import sys
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
@@ -10,8 +11,10 @@ from core import (
     LIGHT_ORDER,
     THIS_YEAR,
     financing_check,
+    group_where,
     pretty_name,
     recert_rules,
+    tower_groups,
 )
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from report_db import build_report
@@ -19,7 +22,7 @@ from weasyprint import HTML
 
 HERE = Path(__file__).parent
 OUT = HERE / "out"
-MAX_TOWERS = 3  # recertification rows shown before "+ N more"
+MAX_TOWERS = 3  # recertification rows shown before "+ N more" (red and yellow rows are always shown)
 MAX_PERMITS = 5  # permits of the last 12 months listed one per line
 
 PERMIT_STATUS = {
@@ -202,14 +205,17 @@ def permit_line(permit):
     return {"date": issued, "type": permit["PermitType"].capitalize(), "status": status}
 
 
-def enforcement_detail(tower, building):
-    """The County case behind ENFORCEMENT (code 30), so the realtor can look it up in the County's portal."""
-    text = f"Case {tower['plan']} · open since {tower['year_due']}."
+def enforcement_detail(group, building):
+    """The County cases behind ENFORCEMENT (code 30), so the realtor can look them up in the County's portal."""
+    plans = sorted({t["plan"] for t in group["towers"]})
+    if len(plans) == 1:
+        text = f"Case {plans[0]} · open since {group['tower']['year_due']}."
+    else:
+        more = f" + {len(plans) - 2} more" if len(plans) > 2 else ""
+        text = f"Cases {', '.join(plans[:2])}{more} · open since {group['tower']['year_due']}."
     cases = (building.get("violations") or {}).get("open") or []
     # the County files an overdue recertification as an unsafe structure case too: count only the others
-    unsafe = [
-        c["case_number"] for c in cases if c["case_type"] == "Unsafe Structure" and c["case_number"] != tower["plan"]
-    ]
+    unsafe = [c["case_number"] for c in cases if c["case_type"] == "Unsafe Structure" and c["case_number"] not in plans]
     if unsafe:
         cases_word = "case" if len(unsafe) == 1 else "cases"
         text += f" Also {len(unsafe)} other open unsafe structure {cases_word} on the building (e.g. {unsafe[0]})."
@@ -217,12 +223,13 @@ def enforcement_detail(tower, building):
     return f"{text} County records as of {long_date(day)}." if day else text
 
 
-def recert_detail(tower, official, building=None):
-    """One sentence with the dates we know for a tower; 'estimated' unless the rule is official."""
+def recert_detail(group, official, building=None):
+    """One sentence with the dates we know for a group of towers; 'estimated' unless the rule is official."""
+    tower = group["tower"]
     due = tower.get("next_due")
     label = tower["label"]
     if label == "Pending: enforcement" and building and building["parent_folio"].startswith("30"):
-        return enforcement_detail(tower, building)
+        return enforcement_detail(group, building)
     if label == "Not built yet":
         return "No year built on record; the units are listed as vacant."
 
@@ -236,40 +243,44 @@ def recert_detail(tower, official, building=None):
         return f"Exempted in the {tower['year_due']} cycle."
     if label.startswith("Completed"):
         return f"{tower['year_due']} cycle completed. Next due: {due['year']}{'' if official else ' (estimated)'}."
-    if not tower["status_date"]:
+    days = sorted({t["status_date"] for t in group["towers"] if t["status_date"]})
+    if not days:
         return f"{tower['year_due']} cycle."
-    return f"{tower['year_due']} cycle, last update {tower['status_date']}."
+    if len(days) == 1:
+        return f"{tower['year_due']} cycle, last update {days[0]}."
+    return f"{tower['year_due']} cycle, last updates {days[0]} to {days[-1]}."
 
 
 def compliance_rows(building):
     """Rows of the compliance table: item, badge, color, detail."""
     rows = []
-    towers = list(building["recert_by_tower"].items())
-    towers.sort(key=lambda kv: -LIGHT_ORDER.index(kv[1]["light"]))  # worst first
-    for address, tower in towers[:MAX_TOWERS]:
-        badge, color, _ = RECERT_TEXT[tower["label"]]
+    all_towers = len(building["recert_by_tower"])
+    groups = tower_groups(building["recert_by_tower"])  # worst first
+    # red and yellow groups are never hidden; green ones fill the rows left
+    shown = [g for g in groups if g["tower"]["light"] != "green" or groups.index(g) < MAX_TOWERS]
+    for group in shown:
+        badge, color, _ = RECERT_TEXT[group["tower"]["label"]]
+        where = group_where(group, all_towers)
         item = (
-            "Recertification (milestone)"
-            if len(towers) == 1
-            else f"Recertification (milestone) · {pretty_name(address)}"
+            "Recertification (milestone)" if all_towers == 1 or not where else f"Recertification (milestone) · {where}"
         )
         rows.append(
             {
                 "item": item,
                 "badge": badge,
                 "color": color,
-                "detail": recert_detail(tower, recert_rules(building)["official"], building),
+                "detail": recert_detail(group, recert_rules(building)["official"], building),
             }
         )
-    if len(towers) > MAX_TOWERS:
-        rows.append(
-            {
-                "item": f"+ {len(towers) - MAX_TOWERS} more addresses",
-                "badge": "",
-                "color": "gray",
-                "detail": "Shown worst first. Ask us for the full list.",
-            }
-        )
+    hidden = Counter(RECERT_TEXT[t["label"]][0] for g in groups if g not in shown for t in g["towers"])
+    if hidden:
+        count = sum(hidden.values())
+        what = f"address{'' if count == 1 else 'es'}"
+        if len(hidden) == 1:
+            item = f"+ {count} more {what}, all {next(iter(hidden))}"
+        else:
+            item = f"+ {count} more {what} ({', '.join(f'{n} {badge.lower()}' for badge, n in hidden.most_common())})"
+        rows.append({"item": item, "badge": "", "color": "gray", "detail": "Ask us for the full list."})
 
     floors = building["estimate_floors"]
     dbpr = building["dbpr"]
