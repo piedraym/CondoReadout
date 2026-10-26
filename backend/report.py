@@ -339,10 +339,18 @@ def result_text(tower, official, place=OTHER_PLACE):
     """Sentence for the overall result, from the worst tower."""
     if tower["label"] == "Pending: enforcement" and place.get("enforcement"):
         return place["enforcement"]
-    if tower["label"] == "no record" and not tower.get("next_due"):
-        return "No recertification record was found, and the year built is not on record."
-    if tower["label"] == "no record" and official:
-        return "No recertification record was found, and under the recertification rule one was already due."
+    if tower["label"] == "no record":
+        if not tower.get("next_due"):
+            why = "the year built is not on record"
+        elif official:
+            why = "under the recertification rule one was already due"
+        else:
+            why = "by our estimate one was already due"
+        # "not found" is not "not done": the record may exist where the public data does not reach
+        return (
+            f"No recertification record was found in the {place['records']}, and {why}. "
+            "This does not mean it was not done: ask the association for the certificate."
+        )
     return RECERT_TEXT[tower["label"]][2]
 
 
