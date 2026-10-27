@@ -308,6 +308,8 @@ COMMERCIAL_TYPES = {
     "hotel",
     "other commercial",
 }  # kinds from unit_type()
+# the lenders cap commercial space at 35% of the floor area; below this share of units it is not worth a line
+COMMERCIAL_SIGNAL_PERCENT = 10
 
 LIGHTS = {
     "Completed": "green",
@@ -904,7 +906,12 @@ def association_questions(building):
             continue
         label = group["tower"]["label"]
         where = group_where(group, all_towers) or "The building"
-        if label == "no record":
+        if label == "Pending: enforcement":
+            questions.append(
+                f"{where}: the recertification shows ENFORCEMENT. Why is it in enforcement, what repairs are "
+                "required, and are there fines or liens?"
+            )
+        elif label == "no record":
             questions.append(
                 f"{where}: request the recertification certificate (no record found in the public records)."
             )
@@ -952,14 +959,16 @@ def association_questions(building):
         questions.append("Is the association current on its annual fee to DBPR? It is listed as delinquent.")
     in_progress = building["permits"]["in_progress"]
     if in_progress:
+        permits = "permit" if len(in_progress) == 1 else "permits"
         questions.append(
-            f"What work is in progress under the {len(in_progress)} active permits, "
+            f"What work is in progress under the {len(in_progress)} active {permits}, "
             "what does it cost and how will it be paid for?"
         )
     not_closed = building["permits"]["not_closed"]
     if not_closed:
+        permits = "permit" if len(not_closed) == 1 else "permits"
         questions.append(
-            f"Was the work under the {len(not_closed)} expired, revoked or on-hold permits completed "
+            f"Was the work under the {len(not_closed)} expired, revoked or on-hold {permits} completed "
             f"and inspected (e.g. {not_closed[0]['PermitNumber']})?"
         )
 

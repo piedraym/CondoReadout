@@ -148,7 +148,7 @@
         <p class="totals">Unsafe structure: {{ violations.unsafe }} · Expired permits: {{ violations.expired }} · With a lien: {{ violations.liens }}{% if violations.unit_open %} · {{ violations.unit_open }} more open on individual units{% endif %}</p>
         {% endif %}
         {% elif violations.status == "not_public" %}
-        <strong>Code violations: not public</strong>
+        <strong>Code violations: not in open data</strong>
         <p>Code compliance and unsafe structure cases are not available in the {{ violations.jurisdiction }} open data. Ask the association for a written confirmation of no open code violations.</p>
         {% elif violations.status == "unavailable" %}
         <strong>Code violations: not available right now</strong>

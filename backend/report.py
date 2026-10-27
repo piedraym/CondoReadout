@@ -7,6 +7,7 @@ from pathlib import Path
 
 import psycopg
 from core import (
+    COMMERCIAL_SIGNAL_PERCENT,
     FULL_REVIEW_MIN_UNITS,
     LIGHT_ORDER,
     RECERT_TEXT,
@@ -167,6 +168,12 @@ def enforcement_detail(group, building):
     return f"{text} County records as of {long_date(day)}." if day else text
 
 
+def short_date(day):
+    """'2026-07-21' -> 'Jul 21, 2026'."""
+    day = date.fromisoformat(day)
+    return f"{day:%b} {day.day}, {day.year}"
+
+
 def recert_detail(group, official, building=None):
     """One sentence with the dates we know for a group of towers; 'estimated' unless the rule is official."""
     tower = group["tower"]
@@ -191,8 +198,8 @@ def recert_detail(group, official, building=None):
     if not days:
         return f"{tower['year_due']} cycle."
     if len(days) == 1:
-        return f"{tower['year_due']} cycle, last update {days[0]}."
-    return f"{tower['year_due']} cycle, last updates {days[0]} to {days[-1]}."
+        return f"{tower['year_due']} cycle, last update {short_date(days[0])}."
+    return f"{tower['year_due']} cycle, last updates {short_date(days[0])} to {short_date(days[-1])}."
 
 
 SIRS_PERIODS = {"before July 2025": "before July 2025", "July 2025+": "after July 2025"}  # DBPR's two exports
@@ -394,11 +401,11 @@ def financing_text(building):
         if check["open_cases"]:
             violations = "violation" if check["open_cases"] == 1 else "violations"
             signals.append(f"{check['open_cases']} open code {violations} on the building. The review asks about them.")
-        if check["commercial"]:
-            share = round(100 * check["commercial"] / units)
+        share = round(100 * check["commercial"] / units)
+        if share >= COMMERCIAL_SIGNAL_PERCENT:
             signals.append(
                 f"{check['commercial']} of {units} units are commercial ({share}%). "
-                "Lenders limit commercial space, measured by floor area."
+                "Lenders cap commercial space at 35% of the floor area."
             )
     return {
         "title": title,
