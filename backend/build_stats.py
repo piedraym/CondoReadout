@@ -2,7 +2,7 @@
 rows of each query of stats.py (stat). nightly.py runs it after the loads; it takes a few minutes."""
 
 from applog import get_logger
-from core import LIGHT_ORDER
+from core import LIGHT_ORDER, milestone_applies
 from database import connect, ingest_run
 from psycopg.types.json import Jsonb
 from report_db import build_report
@@ -30,6 +30,7 @@ def condo_statuses(db):
             min(due) if due else None,  # the tower that is due first
             # why a green condo is green: a recertification on file, or a building too new to need one yet
             ("current" if current else "not_due") if building["recert_light"] == "green" else None,
+            milestone_applies(building),  # the Dashboard counts by it, so the rule lives only in core.py
         )
         if i % 500 == 0:
             log.info("%s of %s condos done", i, len(parents))
@@ -41,7 +42,7 @@ def load():
         statuses = list(condo_statuses(db))
         with db.cursor() as cur:
             cur.execute("DELETE FROM condo_status")
-            cur.executemany("INSERT INTO condo_status VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", statuses)
+            cur.executemany("INSERT INTO condo_status VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", statuses)
             cur.execute("DELETE FROM stat")
             for name, sql in QUERIES.items():
                 cur.execute(sql)

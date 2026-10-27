@@ -773,7 +773,7 @@ def milestone_applies(building):
 
     A building not built yet is 'no': it cannot have a milestone inspection. Known stories decide, whatever
     the units. Only when they are unknown: 11+ units counts as yes, 1-2 units as no, and 3-10 units as maybe.
-    The Dashboard uses the same rule in SQL (stats.py).
+    build_stats.py stores the answer in condo_status.milestone, which the Dashboard counts by.
     """
     if building["unbuilt"]:
         return "no"

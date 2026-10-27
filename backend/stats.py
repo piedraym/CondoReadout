@@ -1,19 +1,9 @@
 """The queries behind the Stats page, by name. build_stats.py runs them every night and stores
 their rows in the stat table; the API only reads that table, so the browser never sends SQL."""
 
-# Whether the building has 3+ stories, as core.milestone_applies: not built yet is no; known stories
-# decide; when they are unknown, 11+ units is yes, 1-2 units no, and 3-10 units maybe
-STORIES = """CASE
-    WHEN c.unbuilt THEN 'no'
-    WHEN c.estimate_floors IS NOT NULL THEN CASE WHEN c.estimate_floors >= 3 THEN 'yes' ELSE 'no' END
-    WHEN c.units >= 11 THEN 'yes'
-    WHEN c.units <= 2 THEN 'no'
-    ELSE 'maybe'
-END"""
-
 # Which condos each part of the Dashboard counts, one rule per norm (see the notes in frontend/src/charts.js)
 RECERTIFICATION = "c.units >= 3"  # County Sec. 8-11: every condo but houses and duplexes (1-2 units)
-MILESTONE = f"({STORIES}) <> 'no'"  # state law: 3+ stories, and the condos we cannot tell (shown apart)
+MILESTONE = "s.milestone <> 'no'"  # state law: 3+ stories (core.milestone_applies), the maybe ones shown apart
 FULL_REVIEW = "c.units >= 11"  # Fannie Mae / Freddie Mac Full Review: more than 10 units
 
 # What a chart groups by inside each area. The light splits green in two: current, or not due yet
@@ -28,8 +18,8 @@ END"""
 
 # The milestone charts put the condos of unknown stories in a gray segment of their own, as the
 # report does (a SIRS filed with DBPR still counts as reported)
-MILESTONE_LIGHT = f"CASE WHEN ({STORIES}) = 'maybe' THEN 'unknown_stories' ELSE {LIGHT} END"
-MILESTONE_SIRS = f"CASE WHEN ({STORIES}) = 'maybe' AND NOT s.sirs_reported THEN 'unknown_stories' ELSE {SIRS} END"
+MILESTONE_LIGHT = f"CASE WHEN s.milestone = 'maybe' THEN 'unknown_stories' ELSE {LIGHT} END"
+MILESTONE_SIRS = f"CASE WHEN s.milestone = 'maybe' AND NOT s.sirs_reported THEN 'unknown_stories' ELSE {SIRS} END"
 
 # When the next recertification is due: overdue, each of the next five years, or later
 DUE = """CASE
