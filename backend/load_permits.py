@@ -45,8 +45,8 @@ def miami_permits():
     return permits.values()
 
 
-# Unincorporated Miami-Dade: the County's permit layer. It only holds permits issued in about the
-# last two years and has no status field. OwnerName and the contractor and architect fields are
+# Unincorporated Miami-Dade: the County's permit layer. It holds permits issued since 2020 and has
+# no status field. OwnerName and the contractor and architect fields are
 # never requested.
 COUNTY_PERMITS = (
     "https://services.arcgis.com/8Pc9XBTAsYuxx9Ny/arcgis/rest/services/miamidade_permit_data/FeatureServer/0"
@@ -86,12 +86,14 @@ def completion_date(text):
 
 def county_permits():
     """Permits of the County layer for code 30, as rows of permit (without the jurisdiction)."""
+    permits = {}
     for f in query(COUNTY_PERMITS, "FolioNumber LIKE '30%'", COUNTY_FIELDS):
         p = f["attributes"]
         kind = COUNTY_TYPES.get(p["PermitType"], p["PermitType"] or "Permit")
         work = (p["ApplicationTypeDescription"] or "").strip()
         completed = p["CoCcDate"]  # certificate of occupancy or completion, '05/28/2026'
-        yield (
+        # a permit can come twice if the County refreshes the layer while we read it: the last one stays
+        permits[p["PermitNumber"]] = (
             p["PermitNumber"],
             p["FolioNumber"],
             p["PropertyAddress"],
@@ -108,6 +110,7 @@ def county_permits():
                 }
             ),
         )
+    return permits.values()
 
 
 # Each jurisdiction publishes its permits in its own way: one function per code
