@@ -881,7 +881,7 @@ def financing_check(building):
     return {
         "full_review": building["units"] >= FULL_REVIEW_MIN_UNITS,
         "recert_label": worst["label"] if worst["light"] != "green" else None,
-        "no_sirs": milestone_applies(building) != "no" and not building["dbpr"]["sirs_reported"],
+        "no_sirs": milestone_applies(building) == "yes" and not building["dbpr"]["sirs_reported"],
         "not_closed": len(building["permits"]["not_closed"]),
         "flood_zone": zone if zone.startswith(("A", "V")) else None,  # high-risk FEMA zones
         "open_cases": len((building.get("violations") or {}).get("open") or []),
@@ -936,6 +936,11 @@ def association_questions(building):
         if building["dbpr"]["sirs_reported"]:
             questions.append(
                 "Request a copy of the Structural Integrity Reserve Study (SIRS) and the reserve funding plan."
+            )
+        elif milestone_applies(building) == "maybe":  # stories unknown: the SIRS may not apply
+            questions.append(
+                "If the building has 3 or more stories, request the Structural Integrity Reserve Study (SIRS): "
+                "it is not in the DBPR registry."
             )
         else:
             questions.append("Request the Structural Integrity Reserve Study (SIRS): it is not in the DBPR registry.")

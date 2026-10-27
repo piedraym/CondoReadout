@@ -237,6 +237,17 @@ def compliance_rows(building):
                     "detail": f"Reported to the state (DBPR): {dbpr['sirs_reported']}.",
                 }
             )
+        elif milestone_applies(building) == "maybe":  # stories unknown: do not claim a SIRS is missing
+            registry = "Not found in" if dbpr["projects"] else "Association not identified in"
+            rows.append(
+                {
+                    "item": "Reserve study (SIRS)",
+                    "badge": "ASK",
+                    "color": "gray",
+                    "detail": "Needed if the building has 3 or more stories (not in the records). "
+                    f"{registry} the DBPR registry.",
+                }
+            )
         elif dbpr["projects"]:
             rows.append(
                 {
