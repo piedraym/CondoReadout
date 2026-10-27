@@ -9,6 +9,7 @@ import psycopg
 from core import (
     FULL_REVIEW_MIN_UNITS,
     LIGHT_ORDER,
+    RECERT_TEXT,
     THIS_YEAR,
     financing_check,
     group_where,
@@ -114,64 +115,6 @@ RESULT_TITLES = {
     "green": "Green · Current or not yet due",
     "yellow": "Yellow · Items to verify",
     "red": "Red · Recertification problem",
-}
-
-# label -> (badge text, badge color, sentence for the overall result)
-RECERT_TEXT = {
-    "Completed": ("CURRENT", "green", "The recertification is on file and current."),
-    "Exempted": ("EXEMPT", "green", "The building is exempt from recertification."),
-    "Not due yet": (
-        "NOT DUE YET",
-        "green",
-        "The first recertification is not due yet.",
-    ),
-    "Not built yet": (
-        "NOT BUILT YET",
-        "green",
-        "The building is not completed yet according to county records, so recertification does not apply yet.",
-    ),
-    "no record": (
-        "NO RECORD",
-        "yellow",
-        "No recertification record was found, and by our estimate one was already due.",
-    ),
-    "Completed: overdue": (
-        "OVERDUE",
-        "yellow",
-        "The last recertification is more than 10 years old.",
-    ),
-    "Pending: city review": (
-        "IN CITY REVIEW",
-        "yellow",
-        "A recertification is in progress and waiting on the City.",
-    ),
-    "Pending: corrections": (
-        "CORRECTIONS REQUESTED",
-        "yellow",
-        "The City asked for corrections on the recertification.",
-    ),
-    "Pending: other": ("PENDING", "yellow", "A recertification is pending."),
-    "Pending: corrections >1y": (
-        "CORRECTIONS > 1 YEAR",
-        "red",
-        "The City asked for recertification corrections more than a year ago and they are still open.",
-    ),
-    "Pending: stalled": (
-        "STALLED",
-        "red",
-        "The recertification process is stalled (cancelled, expired or on hold).",
-    ),
-    "Canceled": ("CANCELED", "red", "The recertification record was canceled."),
-    "Pending: enforcement": (
-        "ENFORCEMENT",
-        "red",
-        "The recertification is overdue and the case was sent to enforcement.",
-    ),
-    "Closed": (
-        "CASE CLOSED",
-        "yellow",
-        "The recertification case was closed without a certificate on file. Ask the association why.",
-    ),
 }
 
 
