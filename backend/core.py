@@ -771,9 +771,12 @@ DUPLEX_MAX_UNITS = 2  # stories unknown: this few units is a house or duplex
 def milestone_applies(building):
     """'yes' if the building has 3+ stories (state milestone law and SIRS), 'no', or 'maybe' if we cannot tell.
 
-    Known stories decide, whatever the units. Only when they are unknown: 11+ units counts as yes,
-    1-2 units as no, and 3-10 units as maybe. The Dashboard uses the same rule in SQL (stats.py).
+    A building not built yet is 'no': it cannot have a milestone inspection. Known stories decide, whatever
+    the units. Only when they are unknown: 11+ units counts as yes, 1-2 units as no, and 3-10 units as maybe.
+    The Dashboard uses the same rule in SQL (stats.py).
     """
+    if building["unbuilt"]:
+        return "no"
     floors = building["estimate_floors"]
     if floors is not None:
         return "yes" if floors >= MILESTONE_MIN_FLOORS else "no"

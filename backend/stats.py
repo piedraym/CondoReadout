@@ -1,9 +1,10 @@
 """The queries behind the Stats page, by name. build_stats.py runs them every night and stores
 their rows in the stat table; the API only reads that table, so the browser never sends SQL."""
 
-# Whether the building has 3+ stories, as core.milestone_applies: known stories decide; when they are
-# unknown, 11+ units is yes, 1-2 units no, and 3-10 units maybe
+# Whether the building has 3+ stories, as core.milestone_applies: not built yet is no; known stories
+# decide; when they are unknown, 11+ units is yes, 1-2 units no, and 3-10 units maybe
 STORIES = """CASE
+    WHEN c.unbuilt THEN 'no'
     WHEN c.estimate_floors IS NOT NULL THEN CASE WHEN c.estimate_floors >= 3 THEN 'yes' ELSE 'no' END
     WHEN c.units >= 11 THEN 'yes'
     WHEN c.units <= 2 THEN 'no'

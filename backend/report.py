@@ -227,7 +227,7 @@ def compliance_rows(building):
         rows.append({"item": item, "badge": "", "color": "gray", "detail": "Ask us for the full list."})
 
     dbpr = building["dbpr"]
-    if not building["unbuilt"] and milestone_applies(building) != "no":
+    if milestone_applies(building) != "no":  # also "no" when the building is not built yet
         if dbpr["sirs_reported"]:
             rows.append(
                 {
