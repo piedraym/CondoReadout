@@ -468,6 +468,7 @@ def report_context(building):
         "permits_not_closed": len(permits["not_closed"]),
         "questions": building["questions"],
         "generated": long_date(date.today()),
+        "report_id": f"CR-{building['parent_folio']}-{date.today():%Y%m%d}",  # condo and day: names this version
         "data_text": data_text(building.get("data_dates"), place["records"]),
     }
 

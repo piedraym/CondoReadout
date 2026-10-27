@@ -4,9 +4,12 @@
 <meta charset="utf-8">
 <title>Building Health Report · {{ name }}</title>
 <style>
-  @page { size: Letter; margin: 0.3in 0 0.9in 0; background: #f7f5f1; }  /* bottom margin holds the footer */
+  @page {
+    size: Letter; margin: 0.3in 0 0.6in 0; background: #f7f5f1;  /* bottom margin holds the footer */
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 10px Helvetica, Arial, sans-serif; color: #4a4f5a; padding-right: 0.45in; }
+  }
   @media screen { .page { padding: 0.3in 0; } }
-  @media print { footer { position: fixed; bottom: -0.82in; left: 0; right: 0; } }  /* repeated on every page */
+  @media print { footer { position: fixed; bottom: -0.5in; left: 0; right: 1.2in; } }  /* repeated on every page; the page number sits to its right */
 
   * { box-sizing: border-box; }
   body { margin: 0; background: #f7f5f1; color: #1f2430; font: 12px/1.38 Helvetica, Arial, sans-serif; }
@@ -63,8 +66,10 @@
   .totals { margin-top: 6px !important; padding-top: 5px; border-top: 1px solid #e6e2da; color: #4a4f5a; }
   ol { margin: 0; padding-left: 20px; }
   ol li { margin-bottom: 3px; }
-  footer { margin-top: 12px; padding-top: 9px; border-top: 1px solid #d9d5cc; font-size: 10px; color: #4a4f5a; }
-  footer p { margin: 0 0 3px; }
+  footer { margin-top: 12px; padding-top: 6px; border-top: 1px solid #d9d5cc; font-size: 10px; color: #4a4f5a; }
+  footer p { margin: 0; }
+  .about { margin-top: 14px; font-size: 10.5px; color: #3d4350; break-inside: avoid; }  /* moves whole to the next page if it does not fit */
+  .about p { margin: 0 0 5px; }
   tr, .card, .result, .tile, li { break-inside: avoid; }
   h2 { break-after: avoid; }
 
@@ -162,10 +167,10 @@
     <div class="card financing">
       <p><strong>{{ financing.title }}</strong> {{ financing.text }}</p>
       {% if financing.signals %}
-      <p>Warning signs in the public records:</p>
+      <p>Items a lender is likely to ask about, from the public records:</p>
       <ul>{% for signal in financing.signals %}<li>{{ signal }}</li>{% endfor %}</ul>
       {% elif financing.full_review %}
-      <p>No warning signs in the public records we check.</p>
+      <p>None of the items we check in the public records.</p>
       {% endif %}
       <p class="fine">Only the lender decides whether a loan is possible. Dues delinquency, litigation, special assessments and Fannie Mae's list of ineligible buildings are not public: they come from the association's questionnaire.</p>
     </div>
@@ -174,13 +179,20 @@
     <ol>
       {% for question in questions %}<li>{{ question }}</li>{% endfor %}
     </ol>
+
+    <h2>About this report</h2>
+    <div class="about">
+      <p>CondoReadout summarizes public records about the building and its common elements, not individual units: a unit can have its own permits, violations or liens. It is not an engineering or home inspection, an appraisal, a title or lien search, an estoppel certificate, a lender's condo review, or legal, financial or insurance advice.</p>
+      <p>"No record found" means we could not find or match a record in the sources listed. It does not mean the item does not exist or was not done. Values marked "est." or "estimated" are our estimates. {% if estimate_note %}{{ estimate_note }}{% endif %}</p>
+      <p>Public data may be incomplete, outdated or wrong. Miami-Dade County data is provided "as is": it is approximate and not suitable on its own for site-specific or financial decisions. This report is provided without warranty.</p>
+      <p>CondoReadout is not affiliated with or endorsed by Miami-Dade County, the City of Miami, the City of Miami Beach, the State of Florida, FEMA, Fannie Mae, Freddie Mac or any real estate association. Verify every item with the association, the issuing agency and a qualified professional before relying on it.</p>
+      <p><strong>Sources:</strong> {{ sources }}</p>
+      <p>{% if data_text %}{{ data_text }} {% endif %}Corrections: <a href="mailto:hola@rubikcode.dev">hola@rubikcode.dev</a>, citing the report ID.</p>
+    </div>
   </div>
 
   <footer class="pad">
-    <p><strong>Sources:</strong> {{ sources }}</p>
-    <p>This report summarizes public records and is not an engineering inspection, 
-      an appraisal or legal advice. Miami-Dade County data is provided "as is": it is approximate and not suitable on its own for site-specific or financial decisions. {% if estimate_note %}{{ estimate_note }} {% endif %}Verify every item with the association and a qualified professional.</p>
-    <p>{% if data_text %}{{ data_text }} {% endif %}Generated {{ generated }} · Folio {{ folio }}</p>
+    <p>Report {{ report_id }} · Generated {{ generated }} · Folio {{ folio }}</p>
   </footer>
 </div>
 </body>
