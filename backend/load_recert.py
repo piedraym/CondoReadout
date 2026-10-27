@@ -5,7 +5,7 @@ import io
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import openpyxl
@@ -275,6 +275,11 @@ def miami_beach_cases():
     return cases.values()
 
 
+def miami_beach_export_day():
+    """Day of the newest exported file: the cases are as of that day, not as of the load."""
+    return max(date.fromtimestamp(path.stat().st_mtime) for path in MIAMI_BEACH_FILES.glob("*.csv"))
+
+
 def miami_beach_records():
     """Miami Beach cases on a condo, one row per case and tower. The case carries the folio of the
     condo (or of a unit), not of a building, so it counts for every tower of the condo."""
@@ -324,6 +329,8 @@ def load(code):
         raise SystemExit(1)
     with connect() as db, ingest_run(db, "recert", code) as run:
         rows = [(code, *record) for record in SOURCES[code]()]
+        if code == "02":  # files exported by hand
+            run.data_date = miami_beach_export_day()
         with db.cursor() as cur:
             cur.execute("DELETE FROM recert_record WHERE jurisdiction_code = %s", [code])
             cur.executemany(

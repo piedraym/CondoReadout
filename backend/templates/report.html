@@ -89,7 +89,7 @@
     <div class="tiles">
       <div class="tile"><div class="label">Year built</div><div class="value">{{ year_built }}</div><div class="note">{{ age }}</div></div>
       <div class="tile"><div class="label">Floors (est.) · units</div><div class="value">{{ floors }} · {{ units }}</div><div class="note">{{ type_text }}</div></div>
-      <div class="tile"><div class="label">Distance to coast</div><div class="value">{{ coast }}</div><div class="note">{{ coast_text }}</div></div>
+      <div class="tile"><div class="label">Distance to coast (approx.)</div><div class="value">{{ coast }}</div><div class="note">{{ coast_text }}</div></div>
       <div class="tile"><div class="label">FEMA flood zone</div><div class="value">{{ zone }}</div><div class="note">{{ zone_text }}</div></div>
     </div>
 
@@ -149,7 +149,7 @@
         {% endif %}
         {% elif violations.status == "not_public" %}
         <strong>Code violations: not public</strong>
-        <p>{{ violations.jurisdiction }} does not publish code compliance or unsafe structure cases. Ask the association for a written confirmation of no open code violations.</p>
+        <p>Code compliance and unsafe structure cases are not available in the {{ violations.jurisdiction }} open data. Ask the association for a written confirmation of no open code violations.</p>
         {% elif violations.status == "unavailable" %}
         <strong>Code violations: not available right now</strong>
         <p>{{ violations.jurisdiction }} publishes its code cases, but they could not be loaded for this report. Ask the association for a written confirmation of no open code violations.</p>       
@@ -172,7 +172,10 @@
       {% elif financing.full_review %}
       <p>None of the items we check in the public records.</p>
       {% endif %}
-      <p class="fine">Only the lender decides whether a loan is possible. Dues delinquency, litigation, special assessments and Fannie Mae's list of ineligible buildings are not public: they come from the association's questionnaire.</p>
+      <p class="fine">
+        Only the lender decides whether a loan is possible. Dues delinquency, litigation, special assessments and Fannie Mae's list of ineligible buildings are not public: they come from the association's questionnaire.
+        Lender rules as of the Fannie Mae and Freddie Mac guidance of October 2026.
+      </p>
     </div>
 
     <h2>What to ask the association before making an offer</h2>

@@ -54,13 +54,13 @@ SINGLE_TYPE = {  # condos where every unit is of the same kind
 LIEN_SEARCH = {
     "01": {
         "who": "The City of Miami",
-        "fee": "$200",
+        "fee": "$200 as of October 2026",  # the price on the City's page when we checked
         "url": "https://www.miami.gov/Services/Building-Permitting/Run-a-Lien-or-Violation-Search",
         "link_text": "miami.gov: Run a Lien or Violation Search",
     },
     "02": {
         "who": "The City of Miami Beach",
-        "fee": "$153 for a condo unit",
+        "fee": "$153 for a condo unit as of October 2026",
         "url": "https://lien.miamibeachfl.gov/",
         "link_text": "lien.miamibeachfl.gov: Lien Research System",
     },
@@ -195,6 +195,16 @@ def recert_detail(group, official, building=None):
     return f"{tower['year_due']} cycle, last updates {days[0]} to {days[-1]}."
 
 
+SIRS_PERIODS = {"before July 2025": "before July 2025", "July 2025+": "after July 2025"}  # DBPR's two exports
+
+
+def sirs_text(reported):
+    """'July 2025+' -> 'Filed with the state (DBPR) after July 2025. ...'; both periods -> 'twice'."""
+    periods = [SIRS_PERIODS.get(p, p) for p in reported.split(" + ")]
+    when = "twice: before and after July 2025" if len(periods) > 1 else periods[0]
+    return f"Filed with the state (DBPR) {when}. DBPR records the filing; it does not review or approve the study."
+
+
 def compliance_rows(building):
     """Rows of the compliance table: item, badge, color, detail."""
     rows = []
@@ -234,7 +244,7 @@ def compliance_rows(building):
                     "item": "Reserve study (SIRS)",
                     "badge": "REPORTED",
                     "color": "green",
-                    "detail": f"Reported to the state (DBPR): {dbpr['sirs_reported']}.",
+                    "detail": sirs_text(dbpr["sirs_reported"]),
                 }
             )
         elif milestone_applies(building) == "maybe":  # stories unknown: do not claim a SIRS is missing

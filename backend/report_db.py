@@ -236,10 +236,10 @@ def data_dates(db, building):
             [building["parent_folio"][:2]],
         ).fetchall()
     )
-    local = [latest.get(source) for source in ("property", "recert", "permits")]
+    # the sources the jurisdiction has (Miami Beach has no permits yet); the report is as old as the oldest
+    local = [latest[source] for source in ("property", "recert", "permits") if latest.get(source)]
     return {
-        # the report is as old as its oldest source
-        "local": min(local).isoformat() if all(local) else None,
+        "local": min(local).isoformat() if local else None,
         "state": latest["dbpr"].isoformat() if latest.get("dbpr") else None,
     }
 
