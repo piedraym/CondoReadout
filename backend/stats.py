@@ -1,9 +1,18 @@
 """The queries behind the Stats page, by name. build_stats.py runs them every night and stores
 their rows in the stat table; the API only reads that table, so the browser never sends SQL."""
 
+# Whether the building has 3+ stories, as core.milestone_applies: known stories decide; when they are
+# unknown, 11+ units is yes, 1-2 units no, and 3-10 units maybe
+STORIES = """CASE
+    WHEN c.estimate_floors IS NOT NULL THEN CASE WHEN c.estimate_floors >= 3 THEN 'yes' ELSE 'no' END
+    WHEN c.units >= 11 THEN 'yes'
+    WHEN c.units <= 2 THEN 'no'
+    ELSE 'maybe'
+END"""
+
 # Which condos each part of the Dashboard counts, one rule per norm (see the notes in frontend/src/charts.js)
 RECERTIFICATION = "c.units >= 3"  # County Sec. 8-11: every condo but houses and duplexes (1-2 units)
-MILESTONE = "(c.estimate_floors >= 3 OR (c.estimate_floors IS NULL AND c.units >= 11))"  # state law: 3+ floors
+MILESTONE = f"({STORIES}) <> 'no'"  # state law: 3+ stories, and the condos we cannot tell (shown apart)
 FULL_REVIEW = "c.units >= 11"  # Fannie Mae / Freddie Mac Full Review: more than 10 units
 
 # What a chart groups by inside each area. The light splits green in two: current, or not due yet
@@ -15,6 +24,11 @@ SIRS = """CASE
         THEN 'not_in_registry'
     ELSE 'no_dbpr'
 END"""
+
+# The milestone charts put the condos of unknown stories in a gray segment of their own, as the
+# report does (a SIRS filed with DBPR still counts as reported)
+MILESTONE_LIGHT = f"CASE WHEN ({STORIES}) = 'maybe' THEN 'unknown_stories' ELSE {LIGHT} END"
+MILESTONE_SIRS = f"CASE WHEN ({STORIES}) = 'maybe' AND NOT s.sirs_reported THEN 'unknown_stories' ELSE {SIRS} END"
 
 # When the next recertification is due: overdue, each of the next five years, or later
 DUE = """CASE
@@ -53,9 +67,9 @@ QUERIES = {
         value=DUE, name="due", where=f"{RECERTIFICATION} AND s.next_due_year IS NOT NULL"
     ),
     # traffic light of the buildings under the state milestone law
-    "milestone_lights_by_jurisdiction": COUNT_BY.format(value=LIGHT, name="light", where=MILESTONE),
+    "milestone_lights_by_jurisdiction": COUNT_BY.format(value=MILESTONE_LIGHT, name="light", where=MILESTONE),
     # SIRS filed with DBPR, of the buildings under the state milestone law
-    "milestone_sirs_by_jurisdiction": COUNT_BY.format(value=SIRS, name="sirs", where=MILESTONE),
+    "milestone_sirs_by_jurisdiction": COUNT_BY.format(value=MILESTONE_SIRS, name="sirs", where=MILESTONE),
     # traffic light of the condos with 11+ units: the Fannie Mae / Freddie Mac Full Review cut
     "lights_by_jurisdiction": COUNT_BY.format(value=LIGHT, name="light", where=FULL_REVIEW),
 }
@@ -74,8 +88,8 @@ CONDO_LIST = """
 """
 LISTS = {
     "recert_lights_by_jurisdiction": CONDO_LIST.format(value=LIGHT, where=RECERTIFICATION),
-    "milestone_lights_by_jurisdiction": CONDO_LIST.format(value=LIGHT, where=MILESTONE),
-    "milestone_sirs_by_jurisdiction": CONDO_LIST.format(value=SIRS, where=MILESTONE),
+    "milestone_lights_by_jurisdiction": CONDO_LIST.format(value=MILESTONE_LIGHT, where=MILESTONE),
+    "milestone_sirs_by_jurisdiction": CONDO_LIST.format(value=MILESTONE_SIRS, where=MILESTONE),
     "lights_by_jurisdiction": CONDO_LIST.format(value=LIGHT, where=FULL_REVIEW),
     "recert_labels_by_jurisdiction": CONDO_LIST.format(value="s.label", where=RECERTIFICATION),
     "recert_due_by_jurisdiction": CONDO_LIST.format(

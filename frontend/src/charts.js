@@ -59,6 +59,19 @@ const LABEL = {
     Canceled: 'Canceled',
   },
 }
+
+// The milestone charts add a gray segment for the condos whose stories we cannot tell (3-10 units, as
+// core.milestone_applies): the report asks about them instead of claiming the law applies
+const UNKNOWN_STORIES = { value: 'unknown_stories', color: '#d5d8dd', name: 'Unknown stories (3–10 units)' }
+const withUnknownStories = (group) => ({
+  ...group,
+  values: [...group.values, UNKNOWN_STORIES.value],
+  colors: [...group.colors, UNKNOWN_STORIES.color],
+  names: { ...group.names, [UNKNOWN_STORIES.value]: UNKNOWN_STORIES.name },
+})
+const MILESTONE_LIGHT = withUnknownStories(LIGHT)
+const MILESTONE_SIRS = withUnknownStories(SIRS)
+
 // When the next recertification is due: overdue, each of the next five years, or later
 const THIS_YEAR = new Date().getFullYear()
 const NEXT_YEARS = [0, 1, 2, 3, 4].map((n) => String(THIS_YEAR + n))
@@ -68,7 +81,7 @@ const DUE = {
   names: { overdue: 'Overdue', later: `${THIS_YEAR + 5} or later`, ...Object.fromEntries(NEXT_YEARS.map((y) => [y, y])) },
 }
 
-const DARK_TEXT = new Set(['green_not_due', 'yellow', 'not_in_registry', 'no_dbpr']) // light fills: white text would not read
+const DARK_TEXT = new Set(['green_not_due', 'yellow', 'not_in_registry', 'no_dbpr', 'unknown_stories']) // light fills: white text would not read
 
 // The three parts of the Dashboard, one per norm, in the order they are shown
 export const SECTIONS = [
@@ -84,7 +97,8 @@ export const SECTIONS = [
     title: 'Milestone and SIRS',
     note:
       'Florida Statutes 553.899 and the condominium law: condo buildings of 3 or more floors, which also ' +
-      'need a Structural Integrity Reserve Study (SIRS).',
+      'need a Structural Integrity Reserve Study (SIRS). Floors are estimated from the unit numbers; when ' +
+      'unknown, condos of 11+ units count, 1-2 units do not, and 3-10 units are shown apart in gray.',
   },
   {
     id: 'financing',
@@ -191,10 +205,11 @@ export const CHARTS = [
     title: 'Traffic light of condos under the milestone law',
     note:
       'Worst recertification status of each building, by area: in Miami-Dade the recertification counts ' +
-      'as the state milestone inspection. Buildings of 3+ floors (floors estimated; when unknown, condos of 11+ units).',
-    group: LIGHT,
-    columns: columnsFor(LIGHT, 'Light'),
-    make: stackedBars(LIGHT),
+      'as the state milestone inspection. Buildings of 3+ floors, and in gray the condos of 3-10 units whose ' +
+      'floors we cannot tell.',
+    group: MILESTONE_LIGHT,
+    columns: columnsFor(MILESTONE_LIGHT, 'Light'),
+    make: stackedBars(MILESTONE_LIGHT),
     list: true, // clicking a segment lists its condos (stats.LISTS in the backend)
   },
   {
@@ -204,10 +219,11 @@ export const CHARTS = [
     note:
       'Whether the association filed a SIRS with the state (DBPR), for the buildings under the milestone law. ' +
       '"Not in registry" means we found the association but no SIRS filed: it does not prove there is none. ' +
-      '"No DBPR match" means we could not identify the association in the state registry.',
-    group: SIRS,
-    columns: columnsFor(SIRS, 'SIRS'),
-    make: stackedBars(SIRS),
+      '"No DBPR match" means we could not identify the association in the state registry. ' +
+      '"Unknown stories": 3-10 units, floors unknown and no SIRS filed: it is needed only with 3+ floors.',
+    group: MILESTONE_SIRS,
+    columns: columnsFor(MILESTONE_SIRS, 'SIRS'),
+    make: stackedBars(MILESTONE_SIRS),
     list: true, // clicking a segment lists its condos (stats.LISTS in the backend)
   },
   {
