@@ -763,12 +763,30 @@ def recert_rules(building):
     }
 
 
+MILESTONE_MIN_FLOORS = 3  # state milestone law and SIRS; also the County's coastal age
+APARTMENT_MIN_UNITS = 11  # stories unknown: this many units is an apartment building
+DUPLEX_MAX_UNITS = 2  # stories unknown: this few units is a house or duplex
+
+
+def milestone_applies(building):
+    """'yes' if the building has 3+ stories (state milestone law and SIRS), 'no', or 'maybe' if we cannot tell.
+
+    Known stories decide, whatever the units. Only when they are unknown: 11+ units counts as yes,
+    1-2 units as no, and 3-10 units as maybe. The Dashboard uses the same rule in SQL (stats.py).
+    """
+    floors = building["estimate_floors"]
+    if floors is not None:
+        return "yes" if floors >= MILESTONE_MIN_FLOORS else "no"
+    if building["units"] >= APARTMENT_MIN_UNITS:
+        return "yes"
+    return "no" if building["units"] <= DUPLEX_MAX_UNITS else "maybe"
+
+
 def first_recert_age(building):
-    """Age of the first recertification: the coastal age for coastal buildings of 3+ floors."""
+    """Age of the first recertification: the coastal age for coastal condos of 3+ stories (County Sec. 8-11(f))."""
     rules = recert_rules(building)
     coastal = (building.get("coast") or {}).get("within_3_miles")
-    floors = building["estimate_floors"]
-    if coastal and (floors is None or floors >= 3):  # unknown floors: be strict
+    if coastal and milestone_applies(building) != "no":  # maybe: be strict
         return rules["first_age_coastal"]
     return rules["first_age"]
 
@@ -859,12 +877,11 @@ def financing_check(building):
         building["recert_by_tower"].values(),
         key=lambda t: LIGHT_ORDER.index(t["light"]),
     )
-    floors = building["estimate_floors"]
     zone = (building["flood"] or {}).get("zone") or ""
     return {
         "full_review": building["units"] >= FULL_REVIEW_MIN_UNITS,
         "recert_label": worst["label"] if worst["light"] != "green" else None,
-        "no_sirs": (floors is None or floors >= 3) and not building["dbpr"]["sirs_reported"],
+        "no_sirs": milestone_applies(building) != "no" and not building["dbpr"]["sirs_reported"],
         "not_closed": len(building["permits"]["not_closed"]),
         "flood_zone": zone if zone.startswith(("A", "V")) else None,  # high-risk FEMA zones
         "open_cases": len((building.get("violations") or {}).get("open") or []),
@@ -894,27 +911,27 @@ def association_questions(building):
                 " What is its status and when will it be completed?"
             )
 
-    floors = building["estimate_floors"]
+    cases = (building.get("violations") or {}).get("open") or []
+    if cases:
+        unsafe = [c for c in cases if c["case_type"] == "Unsafe Structure"]
+        example = (unsafe or cases)[0]["case_number"]
+        questions.append(
+            f"{building['violations']['jurisdiction']} records show {len(cases)} open code "
+            f"violation{'' if len(cases) == 1 else 's'} on the building"
+            f"{f', {len(unsafe)} of them unsafe structure' if unsafe else ''} (e.g. case {example}): "
+            "what are they, what will it cost to correct them, and is there a lien?"
+        )
+
     built = building["year_of_construction"]
     if building["unbuilt"]:
         questions.append(
             "The building is not completed yet: ask the developer for the expected completion date "
             "and the estimated association budget and reserves."
         )
-    elif floors is None or floors >= 3:  # milestone and SIRS apply to 3+ floors; unknown: be strict
+    elif milestone_applies(building) != "no":  # milestone and SIRS apply to 3+ stories; maybe: ask
         if built is None or THIS_YEAR - built >= first_recert_age(building):
             questions.append(
                 "Request the latest recertification (milestone) inspection report and any repairs it requires."
-            )
-        cases = (building.get("violations") or {}).get("open") or []
-        if cases:
-            unsafe = [c for c in cases if c["case_type"] == "Unsafe Structure"]
-            example = (unsafe or cases)[0]["case_number"]
-            questions.append(
-                f"{building['violations']['jurisdiction']} records show {len(cases)} open code "
-                f"violation{'' if len(cases) == 1 else 's'} on the building"
-                f"{f', {len(unsafe)} of them unsafe structure' if unsafe else ''} (e.g. case {example}): "
-                "what are they, what will it cost to correct them, and is there a lien?"
             )
         if building["dbpr"]["sirs_reported"]:
             questions.append(

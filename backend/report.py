@@ -13,6 +13,7 @@ from core import (
     THIS_YEAR,
     financing_check,
     group_where,
+    milestone_applies,
     pretty_name,
     recert_rules,
     tower_groups,
@@ -225,9 +226,8 @@ def compliance_rows(building):
             item = f"+ {count} more {what} ({', '.join(f'{n} {badge.lower()}' for badge, n in hidden.most_common())})"
         rows.append({"item": item, "badge": "", "color": "gray", "detail": "Ask us for the full list."})
 
-    floors = building["estimate_floors"]
     dbpr = building["dbpr"]
-    if not building["unbuilt"] and (floors is None or floors >= 3):
+    if not building["unbuilt"] and milestone_applies(building) != "no":
         if dbpr["sirs_reported"]:
             rows.append(
                 {
