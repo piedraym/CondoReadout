@@ -45,22 +45,9 @@ function StatCard({ chart, rows }) {
     <article className="stat">
       <h3>{chart.title}</h3>
       <p className="note">{chart.note}</p>
+       {chart.list && !picked && <p className="hint">Click a colored segment to see the list of its condos</p>}
       <Chart make={make} onPick={chart.list ? (index) => setPicked(rows[index]) : null} />
-      {chart.list && !picked && <p className="hint">Click a bar segment to list its condos.</p>}
       {picked && <CondoList chart={chart} picked={picked} onClose={() => setPicked(null)} />}
-      <details>
-        <summary>Show the data</summary>
-        <table>
-          <thead>
-            <tr>{chart.columns.map(([key, label]) => <th key={key}>{label}</th>)}</tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i}>{chart.columns.map(([key]) => <td key={key}>{row[key]}</td>)}</tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
     </article>
   )
 }

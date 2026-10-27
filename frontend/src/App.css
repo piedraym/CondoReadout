@@ -176,23 +176,6 @@ header nav a {
   font-size: 14px;
 }
 
-.stat details {
-  margin-top: 8px;
-  font-size: 14px;
-}
-
-.stat table {
-  border-collapse: collapse;
-  margin-top: 8px;
-}
-
-.stat th,
-.stat td {
-  padding: 4px 12px 4px 0;
-  text-align: left;
-  border-bottom: 1px solid var(--line);
-}
-
 
 /* Clickable bar segments and the list of condos under the chart */
 .chart.clickable svg g[aria-label='bar'] rect,
@@ -202,9 +185,15 @@ header nav a {
 
 
 .stat .hint {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 13px;
+  display: inline-block;
+  margin: 0 0 10px;
+  padding: 6px 12px;
+  background: var(--active);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: bold;
 }
 
 .condo-list {

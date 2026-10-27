@@ -7,10 +7,10 @@ const LIGHT = {
   values: ['green_current', 'green_not_due', 'yellow', 'red'],
   colors: ['#3f8f3a', '#a3d39c', '#d18f00', '#c0392b'],
   names: {
-    green_current: 'Green · current',
-    green_not_due: 'Green · not yet due',
-    yellow: 'Yellow',
-    red: 'Red',
+    green_current: 'Recertification current or exempt',
+    green_not_due: 'First recertification not yet due',
+    yellow: 'Recertification to verify (in progress, no record, overdue)',
+    red: 'Recertification problem (enforcement, stalled, canceled)',
   },
 }
 // the report's three traffic light colors, for charts that color by the plain light
@@ -62,14 +62,29 @@ const LABEL = {
 
 // The milestone charts add a gray segment for the condos whose stories we cannot tell (3-10 units, as
 // core.milestone_applies): the report asks about them instead of claiming the law applies
-const UNKNOWN_STORIES = { value: 'unknown_stories', color: '#d5d8dd', name: 'Unknown stories (3–10 units)' }
+const UNKNOWN_STORIES = {
+  value: 'unknown_stories',
+  color: '#d5d8dd',
+  name: 'Stories unknown (3–10 units): the law may not apply; the report asks about the SIRS',
+}
+
 const withUnknownStories = (group) => ({
   ...group,
   values: [...group.values, UNKNOWN_STORIES.value],
   colors: [...group.colors, UNKNOWN_STORIES.color],
   names: { ...group.names, [UNKNOWN_STORIES.value]: UNKNOWN_STORIES.name },
 })
-const MILESTONE_LIGHT = withUnknownStories(LIGHT)
+// the same lights in milestone words: in Miami-Dade the milestone inspection is the County recertification
+const MILESTONE_LIGHT = withUnknownStories({
+  ...LIGHT,
+  names: {
+    green_current: 'Milestone inspection current or exempt',
+    green_not_due: 'First milestone inspection not yet due',
+    yellow: 'Milestone inspection to verify (in progress, no record, overdue)',
+    red: 'Milestone inspection problem (enforcement, stalled, canceled)',
+  },
+})
+
 const MILESTONE_SIRS = withUnknownStories(SIRS)
 
 // When the next recertification is due: overdue, each of the next five years, or later
@@ -89,8 +104,9 @@ export const SECTIONS = [
     id: 'recertification',
     title: 'Recertification',
     note:
-      'Miami-Dade County Code Sec. 8-11: almost every building (not houses or duplexes), at 30 years and ' +
-      'every 10 years after. In Miami-Dade it also counts as the state milestone inspection.',
+      'Miami-Dade County Code Sec. 8-11(f): structural and electrical recertification at 30 years (25 for condo and ' +
+      'co-op buildings of 3+ stories within 3 miles of the coast) and every 10 years after. Houses, duplexes and ' +
+      'minor buildings are exempt. In Miami-Dade it serves as the state milestone inspection (F.S. 553.899).',
   },
   {
     id: 'milestone',
@@ -164,13 +180,7 @@ const dueBars = barsByArea(DUE, (d) => (d.due === 'overdue' ? 'overdue' : 'due')
   range: ['#c0392b', '#1f4e79'],
 })
 
-const columnsFor = (group, label) => [
-  ['jurisdiction', 'Area'],
-  [group.field, label],
-  ['condos', 'Condos'],
-]
-
-// One entry per query of backend/stats.py: its section, how to draw its rows, and its table columns
+// One entry per query of backend/stats.py: its section and how to draw its rows
 export const CHARTS = [
 
   {
@@ -181,7 +191,6 @@ export const CHARTS = [
       'Worst recertification status of each building, by area. Only condos with 11+ units: the cut at which ' +
       'Fannie Mae and Freddie Mac require a lender Full Review of the condo project (more than 10 units).',
     group: LIGHT,
-    columns: columnsFor(LIGHT, 'Light'),
     make: stackedBars(LIGHT),
     list: true, // clicking a segment lists its condos (stats.LISTS in the backend)
 
@@ -194,7 +203,6 @@ export const CHARTS = [
       'Worst recertification status of each building, by area. Every condo except those of 1 or 2 units ' +
       '(houses and duplexes are exempt from recertification).',
     group: LIGHT,
-    columns: columnsFor(LIGHT, 'Light'),
     make: stackedBars(LIGHT),
     list: true, // clicking a segment lists its condos (stats.LISTS in the backend)
   },
@@ -202,13 +210,12 @@ export const CHARTS = [
   {
     name: 'milestone_lights_by_jurisdiction',
     section: 'milestone',
-    title: 'Traffic light of condos under the milestone law',
+    title: 'Milestone inspection status',
     note:
-      'Worst recertification status of each building, by area: in Miami-Dade the recertification counts ' +
-      'as the state milestone inspection. Buildings of 3+ floors, and in gray the condos of 3-10 units whose ' +
-      'floors we cannot tell.',
+      'In Miami-Dade the state milestone inspection is done through the County recertification, so the colors ' +
+      'show its status (worst building of each condo). Buildings of 3+ floors; in gray, condos of 3-10 units ' +
+      'whose floors we cannot tell. The SIRS is in the next chart.',
     group: MILESTONE_LIGHT,
-    columns: columnsFor(MILESTONE_LIGHT, 'Light'),
     make: stackedBars(MILESTONE_LIGHT),
     list: true, // clicking a segment lists its condos (stats.LISTS in the backend)
   },
@@ -220,9 +227,8 @@ export const CHARTS = [
       'Whether the association filed a SIRS with the state (DBPR), for the buildings under the milestone law. ' +
       '"Not in registry" means we found the association but no SIRS filed: it does not prove there is none. ' +
       '"No DBPR match" means we could not identify the association in the state registry. ' +
-      '"Unknown stories": 3-10 units, floors unknown and no SIRS filed: it is needed only with 3+ floors.',
+      '"Stories unknown": 3-10 units, floors unknown and no SIRS filed: it is needed only with 3+ floors.',
     group: MILESTONE_SIRS,
-    columns: columnsFor(MILESTONE_SIRS, 'SIRS'),
     make: stackedBars(MILESTONE_SIRS),
     list: true, // clicking a segment lists its condos (stats.LISTS in the backend)
   },
@@ -234,11 +240,6 @@ export const CHARTS = [
       'Recertification status of the worst tower of each condo, by area, in the words of the report. ' +
       'Every condo except those of 1 or 2 units. "No record" means no case was found in the public records.',
     group: LABEL,
-    columns: [
-      ['jurisdiction', 'Area'],
-      ['label', 'Status'],
-      ['condos', 'Condos'],
-    ],
     make: labelBars,
     list: true, // clicking a bar lists its condos (stats.LISTS in the backend)
   },
@@ -251,11 +252,6 @@ export const CHARTS = [
       'case, or, with no record, the County schedule (Sec. 8-11(f) as amended in 2022). Estimated; every ' +
       'condo except those of 1 or 2 units, when a date can be computed.',
     group: DUE,
-    columns: [
-      ['jurisdiction', 'Area'],
-      ['due', 'Due'],
-      ['condos', 'Condos'],
-    ],
     make: dueBars,
     list: true, // clicking a bar lists its condos (stats.LISTS in the backend)
   },
