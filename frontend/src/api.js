@@ -22,3 +22,10 @@ export async function getStatCondos(name, jurisdiction, value) {
   return response.json()
 }
 
+// The admin page's loads; the admin password goes in its own header (none is needed on your Mac)
+export async function getLoads(password) {
+  const response = await fetch('/admin/loads', { headers: password ? { 'X-Admin-Password': password } : {} })
+  if (response.status === 403) throw new Error('password')
+  if (!response.ok) throw new Error(`loads failed: ${response.status}`)
+  return response.json()
+}

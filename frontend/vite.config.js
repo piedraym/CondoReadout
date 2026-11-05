@@ -13,6 +13,7 @@ export default defineConfig({
       '/report': API,
       '/stats': API,
       '/health': API,
+      '/admin': API,
     },
   },
 })

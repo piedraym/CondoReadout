@@ -5,6 +5,9 @@ and open http://127.0.0.1:8000/docs to try every endpoint in the browser.
 
 On the server it also serves the web pages (frontend/dist) and asks for the shared password
 in APP_PASSWORD; with no APP_PASSWORD (on your Mac) it asks for none.
+
+The admin page (?page=admin)
+also needs ADMIN_PASSWORD on the server, and does not exist there without it.
 """
 
 import base64
@@ -16,7 +19,7 @@ from pathlib import Path
 
 from applog import get_logger
 from database import connect
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from report import HERE, render_html
@@ -28,6 +31,8 @@ from weasyprint import HTML
 log = get_logger("api")
 
 PASSWORD = os.environ.get("APP_PASSWORD")  # None: no password, as on your Mac
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")  # the admin page's own password, only for you
+ADMIN_DAYS = 14  # days of loads the admin page shows
 OPEN_PATHS = {"/health"}  # the server's health check calls it without a password
 FRONTEND = Path(__file__).parent.parent / "frontend" / "dist"  # built by `npm run build`
 
@@ -49,16 +54,22 @@ def password_ok(header):
     return secrets.compare_digest(given.encode(), PASSWORD.encode())
 
 
+def admin_allowed(given):
+    """The admin page: with ADMIN_PASSWORD, only for that password; without it, only on your Mac."""
+    if ADMIN_PASSWORD:
+        return bool(given) and secrets.compare_digest(given.encode(), ADMIN_PASSWORD.encode())
+    return not PASSWORD
+
+
 @app.middleware("http")
 async def require_password(request, call_next):
     """Ask for the shared password with the browser's own login box, unless APP_PASSWORD is unset."""
-    if PASSWORD and request.url.path not in OPEN_PATHS:
-        if not password_ok(request.headers.get("authorization")):
-            return Response(
-                "Password required",
-                status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="CondoReadout"'},
-            )
+    if PASSWORD and request.url.path not in OPEN_PATHS and not password_ok(request.headers.get("authorization")):
+        return Response(
+            "Password required",
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="CondoReadout"'},
+        )
     return await call_next(request)
 
 
@@ -111,6 +122,30 @@ def stats_condos(name: str, jurisdiction: str, value: str):
         raise HTTPException(404, f"{name} has no condo list")
     with connect() as db:
         cursor = db.execute(LISTS[name], {"jurisdiction": jurisdiction, "value": value})
+        columns = [column.name for column in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
+@app.get("/admin/loads")
+def admin_loads(
+    x_admin_password: str | None = Header(None),
+    days: int = Query(ADMIN_DAYS, ge=1, le=60),
+):
+    """Every load of the last days, one row per run, for the admin page (newest last)."""
+    if not ADMIN_PASSWORD and PASSWORD:
+        raise HTTPException(404, "Not found")  # on the server without ADMIN_PASSWORD the page does not exist
+    if not admin_allowed(x_admin_password):
+        raise HTTPException(403, "Admin password required")
+    with connect() as db:
+        cursor = db.execute(
+            "SELECT r.source, r.jurisdiction_code, coalesce(j.name, 'All areas') AS area,"
+            # the day in Miami, so a load at 2 am counts for that day wherever the server runs
+            " (r.started_at AT TIME ZONE 'America/New_York')::date AS day,"
+            " r.started_at, r.finished_at, r.status, r.row_count, r.data_date, r.error"
+            " FROM ingest_run r LEFT JOIN jurisdiction j ON j.code = r.jurisdiction_code"
+            " WHERE r.started_at > now() - make_interval(days => %s) ORDER BY r.started_at",
+            [days],
+        )
         columns = [column.name for column in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
 

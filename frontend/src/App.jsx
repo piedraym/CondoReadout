@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import AdminPage from './AdminPage.jsx'
 import './App.css'
 import ReportView from './ReportView.jsx'
 import SearchBox from './SearchBox.jsx'
 import StatsPage from './StatsPage.jsx'
 
-// What is on screen lives in the address (?folio=... or ?page=stats), so it can be shared or reloaded
+// What is on screen lives in the address (?folio=..., ?page=stats or ?page=admin), so it can be shared or reloaded
 const fromUrl = () => {
   const params = new URLSearchParams(window.location.search)
   return { folio: params.get('folio'), page: params.get('page') }
@@ -36,6 +37,8 @@ export default function App() {
       </header>
       {view.page === 'stats' ? (
         <StatsPage />
+      ) : view.page === 'admin' ? (
+        <AdminPage /> // not in the menu: only for you, at ?page=admin
       ) : view.folio ? (
         <ReportView folio={view.folio} onBack={() => go(null)} />
       ) : (

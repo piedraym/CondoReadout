@@ -248,3 +248,62 @@ header nav a {
   color: var(--muted);
   text-align: right;
 }
+
+
+/* Admin page: the nightly loads, a cell per source, area and day */
+.loads {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.loads th,
+.loads td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.loads th.day {
+  text-align: center;
+  font-weight: normal;
+  line-height: 1.2;
+}
+
+.loads td.load {
+  width: 30px;
+  text-align: center;
+  font-weight: bold;
+  cursor: default;
+}
+
+.loads td.ok {
+  background: #e1f0dd;
+  color: #2d5f2a;
+}
+
+.loads td.failed {
+  background: #f8dcd8;
+  color: #a12a1c;
+}
+
+.loads td.running {
+  background: #fdf0d5;
+  color: #6b4a00;
+}
+
+.loads td.none {
+  color: var(--muted);
+}
+
+.admin {
+  overflow-x: auto; /* the grid is wider than a phone */
+}
+
+.admin-login {
+  margin-top: 24px;
+}
+
+.admin-login input {
+  margin: 0 8px;
+}
