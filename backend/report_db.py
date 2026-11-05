@@ -9,6 +9,7 @@ from datetime import date, datetime, time, timedelta
 from core import (
     BAD_PERMIT_STATUSES,
     IN_PROGRESS_STATUSES,
+    STALE_PERMIT_DAYS,
     add_next_due,
     association_questions,
     building_light,
@@ -109,7 +110,7 @@ def recert_records(db, building):
 def permit_summary(db, building):
     """Building-level permits: total, last 12 months, in progress and not closed (as core.permit_summary)."""
     rows = db.execute(
-        "SELECT permit_number, status, permit_type, scope, issued_date FROM permit"
+        "SELECT permit_number, status, permit_type, scope, issued_date, extra FROM permit"
         " WHERE jurisdiction_code = %s AND folio = %s"
         " ORDER BY issued_date DESC NULLS LAST, permit_number DESC",
         [building["parent_folio"][:2], building["parent_folio"]],
@@ -121,9 +122,18 @@ def permit_summary(db, building):
             "PermitType": permit_type,
             "ScopeOfWork": scope,
             "PermitIssuedDate": issued and issued.isoformat(),
+            "LastInspectionDate": extra.get("LastInspectionDate"),
+            "has_inspections": "LastInspectionDate" in extra,  # only some sources give inspection dates
         }
-        for number, status, permit_type, scope, issued in rows
+        for number, status, permit_type, scope, issued, extra in rows
     ]
+    quiet_since = (date.today() - timedelta(days=STALE_PERMIT_DAYS)).isoformat()
+
+    def stale(p):
+        """Open, with inspection dates in the source, and no inspection or issue for STALE_PERMIT_DAYS."""
+        last = max(p["PermitIssuedDate"] or "", p["LastInspectionDate"] or "")
+        return p["PermitStatus"] in IN_PROGRESS_STATUSES and p["has_inspections"] and last < quiet_since
+
     year_ago = (date.today() - timedelta(days=365)).isoformat()
     # the oldest permit the source holds: some layers only keep recent years
     first = db.execute(
@@ -133,7 +143,8 @@ def permit_summary(db, building):
         "since": first and first.isoformat(),
         "total": len(permits),
         "last_12_months": [p for p in permits if (p["PermitIssuedDate"] or "") >= year_ago],
-        "in_progress": [p for p in permits if p["PermitStatus"] in IN_PROGRESS_STATUSES],
+        "in_progress": [p for p in permits if p["PermitStatus"] in IN_PROGRESS_STATUSES and not stale(p)],
+        "stale": [p for p in permits if stale(p)],
         "not_closed": [p for p in permits if p["PermitStatus"] in BAD_PERMIT_STATUSES],
     }
 

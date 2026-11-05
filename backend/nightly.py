@@ -30,7 +30,6 @@ STEPS = [
 ]
 NO_SOURCE = {
     ("load_violations.py", "01"),  # the City does not publish its code violations
-    ("load_permits.py", "02"),  # Miami Beach permits are not loaded yet
 }
 
 log = get_logger("nightly")

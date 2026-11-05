@@ -86,21 +86,19 @@ PLACE_TEXT = {
         "SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County.",
         "estimate_note": "",
         "permits_partial": True,  # the County's layer only holds recent years: the report says since when
+        "permits_status": False,  # and it has no status: expired permits come as code cases
         "records": "County records",
         "enforcement": "The County has opened a compliance proceeding because the recertification is overdue.",
     },
     "02": {
         "place": "Miami Beach, FL",
         "sources": "Miami-Dade County Property Appraiser (year built, units), City of Miami Beach (building "
-        "recertification cases from its Civic Access portal; code cases from a public records request), "
-        "Florida DBPR (condominium registry, SIRS reports), FEMA flood zones and shoreline as published by "
-        "Miami-Dade County.",
+        "recertification cases from its Civic Access portal; code cases and building permits from a public "
+        "records request), Florida DBPR (condominium registry, SIRS reports), FEMA flood zones and shoreline "
+        "as published by Miami-Dade County.",
         "estimate_note": "",
-        "permits_partial": False,
+        "permits_partial": True,  # the export starts in 2014: the report says since when
         "records": "City and County records",
-        # only part of the city's data is loaded: the report says so
-        "permits_note": "Miami Beach permits are not loaded yet: look the building up in the City's Civic "
-        "Access portal (energovcss.miamibeachfl.gov).",
         # a one-time export: change the date when a new one is loaded
         "violations_scope": "Building Department code cases as of October 20, 2026, from a public records "
         "request. Liens are not included.",
@@ -398,6 +396,9 @@ def financing_text(building):
         if check["not_closed"]:
             permits = "permit" if check["not_closed"] == 1 else "permits"
             signals.append(f"{check['not_closed']} building {permits} expired, revoked or on hold.")
+        if check["stale"]:
+            permits = "permit" if check["stale"] == 1 else "permits"
+            signals.append(f"{check['stale']} building {permits} open with no inspection in over 6 months.")
         if check["flood_zone"]:
             signals.append(f"High-risk flood zone ({check['flood_zone']}). The review checks the flood insurance.")
         if check["open_cases"]:
@@ -473,6 +474,7 @@ def report_context(building):
         "lien_search": LIEN_SEARCH.get(building["parent_folio"][:2]),
         "violations": violations_text(building.get("violations"), place.get("violations_scope")),
         "permits_note": place.get("permits_note"),
+        "permits_status": place.get("permits_status", True),  # False when the source has no permit status
         "sources": place["sources"],
         "estimate_note": "" if official else place["estimate_note"],
         "permits_since": (
@@ -485,6 +487,7 @@ def report_context(building):
         "permits_recent_count": len(permits["last_12_months"]),
         "permits_in_progress": len(permits["in_progress"]),
         "permits_not_closed": len(permits["not_closed"]),
+        "permits_stale": len(permits.get("stale") or []),
         "questions": building["questions"],
         "generated": long_date(date.today()),
         "report_id": f"CR-{building['parent_folio']}-{date.today():%Y%m%d}",  # condo and day: names this version

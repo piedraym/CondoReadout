@@ -92,6 +92,9 @@ PERMIT_FIELDS = [
 ]
 
 BAD_PERMIT_STATUSES = ("Hold", "Expired", "Revoked")
+# Florida Building Code 105.4.1: a permit is no longer valid after 180 days without an approved inspection.
+# Where the source gives inspection dates, an open permit quiet for that long is not counted as in progress.
+STALE_PERMIT_DAYS = 180
 
 FLOOR_IN_NUMBER = re.compile(r"(?<!\d)(\d{3,4})(?!\d)")  # 1204, E-1001, 806A, PH 5801
 FLOOR_AND_LETTER = re.compile(r"(\d{1,2})-?([A-Z]{1,2})")  # 43-A, 12B
@@ -888,6 +891,7 @@ def financing_check(building):
         "recert_label": worst["label"] if worst["light"] != "green" else None,
         "no_sirs": milestone_applies(building) == "yes" and not building["dbpr"]["sirs_reported"],
         "not_closed": len(building["permits"]["not_closed"]),
+        "stale": len(building["permits"].get("stale") or []),
         "flood_zone": zone if zone.startswith(("A", "V")) else None,  # high-risk FEMA zones
         "open_cases": len((building.get("violations") or {}).get("open") or []),
         "commercial": sum(n for kind, n in building["unit_types"].items() if kind in COMMERCIAL_TYPES),
@@ -970,6 +974,13 @@ def association_questions(building):
         questions.append(
             f"Was the work under the {len(not_closed)} expired, revoked or on-hold {permits} completed "
             f"and inspected (e.g. {not_closed[0]['PermitNumber']})?"
+        )
+    stale = building["permits"].get("stale") or []
+    if stale:
+        permits = "permit" if len(stale) == 1 else "permits"
+        questions.append(
+            f"Was the work under the {len(stale)} open {permits} with no inspection in over 6 months completed "
+            f"and inspected, or abandoned (e.g. {stale[0]['PermitNumber']})?"
         )
 
     zone = (building["flood"] or {}).get("zone") or ""

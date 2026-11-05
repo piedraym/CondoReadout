@@ -128,9 +128,9 @@
           {% if permits_recent_count > permits_recent|length %}<p>and {{ permits_recent_count - permits_recent|length }} more in the last 12 months</p>{% endif %}
           {% if not permits_recent_count %}<p>No permits issued for the building in the last 12 months.</p>{% endif %}
           {% if permits_since %}
-            <p class="totals">Since {{ permits_since }}: {{ permits_total }} permits · expired permits appear under code violations</p>
+            <p class="totals">Since {{ permits_since }}: {{ permits_total }} permits · {% if permits_status %}{{ permits_in_progress }} in progress now {% if permits_stale %} · {{ permits_stale }} open with no inspection in 6+ months{% endif %} · {{ permits_not_closed }} expired, revoked or on hold{% else %}expired permits appear under code violations{% endif %}</p>
           {% else %}
-            <p class="totals">All time: {{ permits_total }} permits · {{ permits_in_progress }} in progress now · {{ permits_not_closed }} expired, revoked or on hold</p>
+            <p class="totals">All time: {{ permits_total }} permits · {{ permits_in_progress }} in progress now{% if permits_stale %} · {{ permits_stale }} open with no inspection in 6+ months{% endif %} · {{ permits_not_closed }} expired, revoked or on hold</p>
           {% endif %}
       {% endif %}
       </div>
