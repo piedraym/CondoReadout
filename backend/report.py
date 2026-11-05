@@ -101,6 +101,7 @@ PLACE_TEXT = {
         # only part of the city's data is loaded: the report says so
         "permits_note": "Miami Beach permits are not loaded yet: look the building up in the City's Civic "
         "Access portal (energovcss.miamibeachfl.gov).",
+        # a one-time export: change the date when a new one is loaded
         "violations_scope": "Building Department code cases as of October 20, 2026, from a public records "
         "request. Liens are not included.",
     },
