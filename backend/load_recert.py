@@ -4,6 +4,7 @@ import csv
 import io
 import re
 import sys
+import time
 from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
@@ -115,19 +116,47 @@ def split_address(address):
     return numbers, " ".join(street)
 
 
-def county_cases():
-    """Every case of the County portal, as dicts with the Excel's column names."""
+# The portal sometimes answers 503 or sends the export so slowly that it never ends: a normal export
+# takes about 15 seconds, so stop a slower one and try again a few minutes later
+PORTAL_TRIES = 3
+PORTAL_WAIT = 300  # seconds before trying again
+PORTAL_MAX_SECONDS = 180  # for the whole export
+
+
+def county_export():
+    """The County portal's Excel export, as bytes."""
     session = requests.Session()
     session.headers["User-Agent"] = "Mozilla/5.0 (CondoReadout nightly load)"
     # the export needs a search in the same session first; it then returns every case
     session.get(
-        COUNTY_PORTAL + "BrSearchResults", params={"RecertificationYear": THIS_YEAR}, timeout=120
+        COUNTY_PORTAL + "BrSearchResults", params={"RecertificationYear": THIS_YEAR}, timeout=60
     ).raise_for_status()
-    answer = session.post(COUNTY_PORTAL + "BrDownload", timeout=300)
-    answer.raise_for_status()
-    if not answer.content.startswith(b"PK"):  # an .xlsx file is a zip
+    started = time.monotonic()
+    chunks = []
+    with session.post(COUNTY_PORTAL + "BrDownload", timeout=60, stream=True) as answer:
+        answer.raise_for_status()
+        for chunk in answer.iter_content(1 << 16):
+            chunks.append(chunk)
+            if time.monotonic() - started > PORTAL_MAX_SECONDS:
+                raise TimeoutError(f"the export took more than {PORTAL_MAX_SECONDS} s")
+    content = b"".join(chunks)
+    if not content.startswith(b"PK"):  # an .xlsx file is a zip
         raise RuntimeError("the County portal did not return an Excel file")
-    rows = openpyxl.load_workbook(io.BytesIO(answer.content), read_only=True).active.iter_rows(values_only=True)
+    return content
+
+
+def county_cases():
+    """Every case of the County portal, as dicts with the Excel's column names."""
+    for attempt in range(1, PORTAL_TRIES + 1):
+        try:
+            content = county_export()
+            break
+        except (requests.RequestException, TimeoutError, RuntimeError) as error:
+            if attempt == PORTAL_TRIES:
+                raise
+            log.warning("County portal failed (%s), trying again in %s s", error, PORTAL_WAIT)
+            time.sleep(PORTAL_WAIT)
+    rows = openpyxl.load_workbook(io.BytesIO(content), read_only=True).active.iter_rows(values_only=True)
     header = next(rows)
     cases = [dict(zip(header, row)) for row in rows]
     if len(cases) < MIN_CASES:
