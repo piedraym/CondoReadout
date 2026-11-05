@@ -92,16 +92,17 @@ PLACE_TEXT = {
     "02": {
         "place": "Miami Beach, FL",
         "sources": "Miami-Dade County Property Appraiser (year built, units), City of Miami Beach (building "
-        "recertification and unsafe structure cases from its Civic Access portal), Florida DBPR (condominium "
-        "registry, SIRS reports), FEMA flood zones and shoreline as published by Miami-Dade County.",
+        "recertification cases from its Civic Access portal; code cases from a public records request), "
+        "Florida DBPR (condominium registry, SIRS reports), FEMA flood zones and shoreline as published by "
+        "Miami-Dade County.",
         "estimate_note": "",
         "permits_partial": False,
         "records": "City and County records",
         # only part of the city's data is loaded: the report says so
         "permits_note": "Miami Beach permits are not loaded yet: look the building up in the City's Civic "
         "Access portal (energovcss.miamibeachfl.gov).",
-        "violations_scope": "Only unsafe structure cases in front of the Special Magistrate are included. "
-        "Other code cases and liens are not loaded.",
+        "violations_scope": "Building Department code cases as of October 20, 2026, from a public records "
+        "request. Liens are not included.",
     },
 }
 OTHER_PLACE = {  # a jurisdiction without its own texts yet: name nobody

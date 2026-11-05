@@ -143,6 +143,7 @@
         {% if violations.more %}<p>and {{ violations.more }} more</p>{% endif %}
         {% if not violations.count %}<p>No open code violations on the building in {{ violations.jurisdiction }} records.</p>{% endif %}
         {% if violations.scope %}
+        <p class="totals">Unsafe structure: {{ violations.unsafe }}{% if violations.unit_open %} · {{ violations.unit_open }} more open on individual units{% endif %}</p>
         <p class="totals">{{ violations.scope }}</p>
         {% else %}
         <p class="totals">Unsafe structure: {{ violations.unsafe }} · Expired permits: {{ violations.expired }} · With a lien: {{ violations.liens }}{% if violations.unit_open %} · {{ violations.unit_open }} more open on individual units{% endif %}</p>

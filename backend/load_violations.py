@@ -1,15 +1,12 @@
 """Load the code and building violation cases of one jurisdiction into PostgreSQL."""
 
-import csv
-import re
 import sys
-from collections import defaultdict
-from datetime import datetime
+from pathlib import Path
 
+import openpyxl
 from applog import get_logger
 from core import ms_to_date, query
 from database import connect, ingest_run
-from load_recert import MIAMI_BEACH_FILES, split_address
 from psycopg.types.json import Jsonb
 
 log = get_logger("load_violations")
@@ -78,48 +75,37 @@ def county_violations():
         )
 
 
-# Miami Beach: Unsafe Structures cases in front of the Special Magistrate, exported by hand from
-# Civic Access (Search Code Case) into data/miamibeach/. The export has no folio, so each case is
-# matched to a condo by the address of one of its towers.
-MIAMI_BEACH_CASE_TYPES = {"Unsafe Structures": "Unsafe Structure"}  # Civic Access type -> ours
+# Miami Beach: every code case of the Building Department since 2014, from a public records request
+# (PRR-2026-3800) saved in data/miamibeach_prr/. Each case carries the folio of the condo or of a unit.
+# The Description column is free text that can name people: it is never read.
+MIAMI_BEACH_CASES = Path(__file__).parent / "data" / "miamibeach_prr" / "ViolationHistoryEnergovSummaryRpt.xlsx"
+MIAMI_BEACH_CLOSED = {"Closed", "Void", "Canceled"}
+MIAMI_BEACH_CASE_TYPES = {"Unsafe Structures": "Unsafe Structure"}  # theirs -> ours; the rest keep their name
 
 
 def miami_beach_violations():
-    """Miami Beach cases at the address of a code-02 condo, as rows of violation (without the jurisdiction)."""
-    towers = defaultdict(set)  # (house number, street) -> parent folios
-    with connect() as db:
-        for parent, address in db.execute(
-            "SELECT t.parent_folio, t.address FROM tower t JOIN condo c USING (parent_folio) WHERE c.jurisdiction_code = '02'"
-        ):
-            numbers, street = split_address(address)
-            if numbers:
-                towers[(numbers[0][0], street)].add(parent)
-    cases = {}
-    for path in sorted(MIAMI_BEACH_FILES.glob("*.csv")):
-        with path.open(encoding="utf-8-sig") as f:
-            for row in csv.DictReader(f):
-                if row.get("Type") in MIAMI_BEACH_CASE_TYPES:
-                    cases[row["Case Number"]] = row
-    for case in cases.values():
-        numbers, street = split_address(re.sub(r"\s+(UNIT:|MIAMI BEACH).*", "", case["Address"], flags=re.IGNORECASE))
-        parents = {p for low, high in numbers for n in range(low, high + 1) for p in towers.get((n, street), ())}
-        if len(parents) != 1:
-            continue  # not a condo, or an address shared by two condos
-        opened, closed = (
-            datetime.strptime(case[key], "%m/%d/%Y").date() if case[key] else None
-            for key in ("Opened Date", "Closed Date")
-        )
+    """Miami Beach code cases, as rows of violation (without the jurisdiction)."""
+    rows = openpyxl.load_workbook(MIAMI_BEACH_CASES, read_only=True).active.iter_rows(values_only=True)
+    for header in rows:  # a title and a total come first, with empty rows between
+        if header and "Parcel" in header:
+            break
+    column = {name: i for i, name in enumerate(header) if name}
+    for row in rows:
+        case = {name: row[i] for name, i in column.items()} if row else {}
+        if not case.get("Case Number"):
+            continue  # the empty rows between cases
+        opened, closed = (case[key] and case[key].date() for key in ("Opened Date", "Closed Date"))
         yield (
             "building",
             case["Case Number"],
-            MIAMI_BEACH_CASE_TYPES[case["Type"]],
-            parents.pop(),  # the condo's folio, so the report finds the case
+            MIAMI_BEACH_CASE_TYPES.get(case["Case Type"], case["Case Type"].replace("–", "-")),
+            str(case["Parcel"] or "").strip() or None,  # the condo's folio or a unit's
             case["Address"],
-            "Closed" if closed else "Open",
+            "Closed" if closed or case["Status"] in MIAMI_BEACH_CLOSED else "Open",
             opened,
             closed,
             None,
-            Jsonb({"case_status": case["Status"]}),  # e.g. 'Special Magistrate'
+            Jsonb({"case_status": case["Status"]}),  # e.g. 'Special Magistrate', 'Fine Owed'
         )
 
 
@@ -135,6 +121,8 @@ def load(code):
         raise SystemExit(1)
     with connect() as db, ingest_run(db, "violations", code) as run:
         rows = [(code, *case) for case in SOURCES[code]()]
+        if code == "02":  # a one-time export: its newest case date tells how old it is
+            run.data_date = max(day for row in rows for day in (row[7], row[8]) if day)
         with db.cursor() as cur:
             cur.execute("DELETE FROM violation WHERE jurisdiction_code = %s", [code])
             cur.executemany("INSERT INTO violation VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", rows)
